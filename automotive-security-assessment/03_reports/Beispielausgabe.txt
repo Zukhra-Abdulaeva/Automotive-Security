@@ -1,0 +1,24 @@
+[+] Loaded can_capture.json
+
+[+] Loaded uds_report.json
+
+[+] Loaded ethernet_scan.json
+
+[+] Loaded firmware_report.json
+
+========== Assessment Summary ==========
+
+Modules analysed : 4
+
+ • can_capture
+ • uds_report
+ • ethernet_scan
+ • firmware_report
+
+========================================
+
+[+] JSON report -> security_assessment.json
+
+[+] Markdown report -> Security_Report.md
+
+[+] HTML report -> Security_Report.html
