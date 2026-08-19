@@ -47,3 +47,15 @@ def test_invalid_input():
     )
 
     assert response.status.value == "INVALID_REQUEST"
+
+def test_invalid_parameters():
+    ecu = ECUSimulator()
+
+    response = ecu.handle_request(
+        {
+            "operation": "PROTECTED_OPERATION",
+            "parameters": "INVALID"
+        }
+    )
+
+    assert response.status.value == "INVALID_REQUEST"

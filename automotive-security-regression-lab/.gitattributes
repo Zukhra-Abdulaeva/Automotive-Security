@@ -1,0 +1,39 @@
+# --- Line Endings ---
+* text=auto eol=lf
+
+# --- Python ---
+*.py text eol=lf
+*.pyw text eol=lf
+
+# --- Markdown / Docs ---
+*.md text eol=lf
+*.rst text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+
+# --- Configs ---
+*.ini text eol=lf
+*.cfg text eol=lf
+
+# --- Shell / Scripts ---
+*.sh text eol=lf
+*.bash text eol=lf
+
+# --- Windows scripts (keep CRLF) ---
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# --- Binary files ---
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.zip binary
+*.exe binary
+*.dll binary
+
+# --- GitHub workflows ---
+*.yml text eol=lf
+.github/** text eol=lf
