@@ -1,9 +1,30 @@
 [
     {
-        "timestamp": "2026-07-25T15:18:22",
+        "timestamp": "2026-08-22T21:53:20.042477",
+        "test": "Diagnostic Session",
+        "request": "10 03",
+        "response": "None",
+        "status": "No Response"
+    },
+    {
+        "timestamp": "2026-08-22T21:53:22.045644",
         "test": "Security Access",
         "request": "27 01",
-        "response": "67 01 3A 4F 92",
-        "status": "Positive Response"
+        "response": "None",
+        "status": "No Response"
+    },
+    {
+        "timestamp": "2026-08-22T21:53:24.048150",
+        "test": "Read VIN",
+        "request": "22 F1 90",
+        "response": "None",
+        "status": "No Response"
+    },
+    {
+        "timestamp": "2026-08-22T21:53:26.050405",
+        "test": "ECU Reset",
+        "request": "11 01",
+        "response": "None",
+        "status": "No Response"
     }
 ]

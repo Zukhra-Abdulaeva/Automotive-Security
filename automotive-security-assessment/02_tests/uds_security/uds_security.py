@@ -11,6 +11,14 @@ Description:
 
 Requirements:
     pip install python-can isotp
+
+Setting up a virtual CAN interface
+sudo modprobe vcan
+sudo ip link add dev vcan0 type vcan
+sudo ip link set up vcan0
+Check:: ip link show vcan0    output:vcan0: <NOARP,UP,LOWER_UP>
+source .venv/bin/activate
+python uds_security.py
 ==========================================================
 """
 
@@ -24,7 +32,7 @@ class UDSSecurityTester:
 
     def __init__(
         self,
-        channel="can0",
+        channel="vcan0",
         interface="socketcan",
         request_id=0x7E0,
         response_id=0x7E8
