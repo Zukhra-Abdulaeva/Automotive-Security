@@ -14,6 +14,10 @@ Requirements:
 
 System requirement:
     nmap must be installed on the host.
+
+    sudo apt update
+    sudo apt install nmap
+
 ==========================================================
 """
 

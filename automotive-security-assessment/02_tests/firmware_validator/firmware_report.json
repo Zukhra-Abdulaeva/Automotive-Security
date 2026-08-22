@@ -1,14 +1,23 @@
 {
-    "generated": "2026-07-25T14:15:10",
+    "generated": "2026-08-22T21:41:38.897410",
     "assessment": "Firmware Integrity Validation",
     "results": [
         {
+            "timestamp": "2026-08-22T21:41:38.897370",
             "test": "Firmware Integrity",
-            "status": "PASS"
+            "file": "gateway_ecu.bin",
+            "status": "FAIL",
+            "expected_hash": "0123456789abcdef",
+            "calculated_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         {
+            "timestamp": "2026-08-22T21:41:38.897407",
             "test": "Firmware Comparison",
-            "identical": false
+            "firmware_a": "gateway_ecu.bin",
+            "firmware_b": "gateway_ecu_v2.bin",
+            "identical": true,
+            "hash_a": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "hash_b": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         }
     ]
 }
