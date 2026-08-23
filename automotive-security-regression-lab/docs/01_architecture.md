@@ -41,7 +41,7 @@ Denied   Granted
        \ /
         v
     ECUResponse
-````
+```
 
 The `ECUSimulator` is the central security target of the current implementation.
 
