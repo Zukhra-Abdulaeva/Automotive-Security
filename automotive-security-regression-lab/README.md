@@ -12,7 +12,7 @@ The project is intentionally limited to simulation. It does not interact with re
 
 ## Why this project exists
 
-[MASTER] The project demonstrates how an engineering workflow can connect security requirements, threat modeling, attack hypotheses, security tests, evidence, findings, root-cause analysis, fixes, retesting, regression testing, and CI/CD.
+The project demonstrates how an engineering workflow can connect security requirements, threat modeling, attack hypotheses, security tests, evidence, findings, root-cause analysis, fixes, retesting, regression testing, and CI/CD.
 
 The project is designed to demonstrate the connection between:
 
@@ -29,7 +29,7 @@ The repository does **not** claim professional penetration-testing experience. I
 
 ## Security-engineering workflow
 
-[MASTER] The planned workflow is:
+The planned workflow is:
 
 ```text
 Security Requirement
@@ -55,13 +55,17 @@ Regression Test
 CI/CD
 ```
 
-Phase 1 established the repository foundation. **Phase 2 — ECU Simulation** implements a deterministic simulated ECU with secure and vulnerable security modes, authorization handling, request validation, and structured responses. The Phase 2 behavior is verified by six automated pytest tests.
+Phase 1 established the repository foundation.
+
+Phase 2 implemented a deterministic simulated ECU with secure and vulnerable security modes, authorization handling, request validation, and structured responses.
+
+Phase 3 introduces the security test execution architecture that separates security test logic from the simulated ECU implementation.
 
 The complete security-testing workflow remains under development and will be implemented incrementally in later phases.
 
 ## Simulated automotive architecture
 
-[MASTER] The planned test architecture is:
+The current Phase-3 test architecture is:
 
 ```text
 Security Test Case
@@ -74,33 +78,77 @@ Simulated ECU
         ↓
 Response
         ↓
-Evidence
+Test Result
 ```
 
-Phase 2 implements the simulated ECU component of this architecture.
+The architecture is intentionally simple and establishes a clear boundary between the security test mechanism and the simulated system under test.
 
-The `ECUSimulator` provides:
+### Security Test Case
 
-- secure and vulnerable security modes
-- explicit authorization state
-- protected operation handling
-- request validation
-- deterministic response statuses
-- structured ECU responses
+`SecurityTestCase` provides the basic abstraction for a security test case.
+
+It currently contains:
+
+* test ID
+* description
+* request
+* expected response status
+
+### Security Test Runner
+
+`SecurityTestRunner` coordinates the execution of a security test case.
+
+Its responsibility is to:
+
+1. accept a test case
+2. send the request through the target interface
+3. receive the ECU response
+4. compare expected and actual response status
+5. return a structured `TestResult`
+
+The runner does not access internal ECU state.
+
+### ECU Adapter
+
+`ECUAdapter` provides the target boundary between the test runner and the concrete simulated ECU.
+
+The `ECUTarget` protocol defines the interface used by the test runner.
+
+The adapter contains no security-test logic and does not implement findings or evidence management.
+
+### Simulated ECU
+
+The `ECUSimulator` remains responsible for the security behavior implemented in Phase 2.
+
+It provides:
+
+* secure and vulnerable security modes
+* explicit authorization state
+* protected operation handling
+* request validation
+* deterministic response statuses
+* structured ECU responses
 
 The simulated ECU does not implement a real CAN or UDS stack and performs no network communication.
 
-The ECU adapter, evidence layer, test-runner architecture, regression workflow, and CI workflow remain deferred to later phases.
+## Phase 3 security-test scenarios
+
+The Phase-3 architecture is verified through the following scenarios:
+
+| Test ID       | Scenario                                    | Expected Result   |
+| ------------- | ------------------------------------------- | ----------------- |
+| `TC-ARCH-001` | Unauthorized protected operation            | `ACCESS_DENIED`   |
+| `TC-ARCH-002` | Authorized protected operation              | `ACCESS_GRANTED`  |
+| `TC-ARCH-003` | Invalid operation                           | `INVALID_REQUEST` |
+| `TC-ARCH-004` | Vulnerable unauthorized protected operation | `ACCESS_GRANTED`  |
+
+These tests exercise the test runner and target abstraction rather than accessing ECU implementation details directly.
 
 ## Technology baseline
 
-[MASTER] The primary technology baseline is Python with pytest as the test framework.
+The primary technology baseline is Python with pytest as the test framework.
 
-[SOURCE] Python 3.14 is the current documented Python 3.14 release line used as the reference for this project foundation. See the official Python documentation: https://docs.python.org/3.14/
-
-[SOURCE] pytest supports project-level configuration in `pyproject.toml`. This repository uses the native `[tool.pytest]` configuration supported by pytest 9.0. See the official pytest configuration documentation: https://docs.pytest.org/en/stable/reference/customize.html
-
-No additional security-specific runtime dependencies are introduced in Phase 2.
+No unnecessary security-specific runtime dependencies are introduced.
 
 ## Repository structure
 
@@ -120,14 +168,19 @@ automotive-security-regression-lab/
 ├── 01_threat_model/
 │   └── .gitkeep
 ├── 02_test_cases/
-│   └── .gitkeep
+│   ├── TC-001-diagnostic-authorization.md
+│   ├── TC-002-message-validation.md
+│   └── TC-003-regression-workflow.md
 ├── 03_src/
 │   └── security_lab/
 │       ├── __init__.py
-│       └── ecu_simulator.py
+│       ├── ecu_simulator.py
+│       ├── ecu_adapter.py
+│       └── test_runner.py
 ├── 04_tests/
 │   ├── test_ecu_simulator.py
-│   └── test_foundation.py
+│   ├── test_foundation.py
+│   └── test_test_runner.py
 ├── 05_examples/
 │   └── .gitkeep
 └── .github/
@@ -139,72 +192,93 @@ The `.gitkeep` files exist only to preserve otherwise empty directories in a Git
 
 ## Current project status
 
-[MASTER] **Phase 2 — ECU Simulation** is the current completed phase.
+**Phase 3 — Security Test Architecture**
 
 Phase 1 established the repository structure, project metadata, documentation foundation, and pytest configuration.
 
-Phase 2 implemented and verified a deterministic simulated ECU with:
+Phase 2 implemented and verified the deterministic simulated ECU.
 
-- secure and vulnerable security modes
-- explicit authorization state
-- protected operation handling
-- request validation
-- deterministic response statuses
-- structured ECU responses
+Phase 3 implemented and verified:
 
-The Phase 2 implementation is verified by six automated pytest tests.
+* `SecurityTestCase`
+* `SecurityTestRunner`
+* `TestResult`
+* `ECUTarget`
+* `ECUAdapter`
+* separation between security test logic and ECU implementation
+* deterministic security-test execution
 
-Latest verification result:
+## Phase 3 verification
+
+The Phase-3 test architecture was executed locally with pytest.
+
+Verified scenarios include:
+
+* secure unauthorized protected operation
+* secure authorized protected operation
+* vulnerable unauthorized protected operation
+* invalid operation
+
+The selected Phase-2 and Phase-3 test files were also executed together successfully.
+
+Latest verified combined result:
 
 ```text
-6 passed
+11 passed
 ```
+
+The Phase-3 test runner itself currently contains four architecture scenarios.
 
 ## Phase boundaries
 
-[MASTER] The following functionality is implemented in Phase 2:
+Phase 3 implements:
 
-- deterministic simulated ECU behavior
-- secure and vulnerable security modes
-- diagnostic authorization state
-- protected operation handling
-- request validation
-- deterministic response statuses
-- automated pytest verification
+* security test case abstraction
+* security test runner
+* ECU target abstraction
+* ECU adapter
+* deterministic test execution
+* separation between test mechanism and simulated system under test
 
-The following components are explicitly deferred to later phases:
+The following functionality belongs to later phases:
 
-- ECU adapter layer
-- security test architecture
-- evidence generation logic
-- security findings
-- root-cause analysis
-- fix and retest workflow
-- broader regression test framework
-- GitHub Actions workflow logic
+* formal Evidence Framework
+* evidence files and execution evidence
+* security findings
+* root-cause analysis
+* fix and retest workflow
+* complete regression framework
+* CI/CD workflow
+* end-to-end assessment
 
-## Verification note
+No real ECU communication or production-system testing is implemented.
 
-Phase 2 has been verified locally with the automated pytest test suite.
+## Architectural principle
 
-The verification covers:
+The central Phase-3 principle is:
 
-- secure unauthorized access denial
-- secure authorized access
-- vulnerable unauthorized access
-- unknown operation rejection
-- invalid input rejection
-- invalid parameter structure rejection
-
-Latest verification result:
+**Separate the security test from the system under test.**
 
 ```text
-6 passed
+Security Test
+      ↓
+Test Runner
+      ↓
+ECU Adapter
+      ↓
+Security Target
 ```
-Security findings, evidence generation, root-cause analysis, fix and retest workflows, broader regression testing, and CI/CD results remain deferred to later phases.
+
+The ECU is the simulated target.
+
+The Test Runner is the test mechanism.
+
+The Adapter connects the two.
+
+This separation provides the architectural foundation for later evidence, findings, retesting, regression, and CI/CD capabilities without implementing those later phases prematurely.
 
 ## Technical references
 
-- [SOURCE] Python documentation: https://docs.python.org/3.14/
-- [SOURCE] pytest configuration documentation: https://docs.pytest.org/en/stable/reference/customize.html
-- [SOURCE] pytest good integration practices: https://docs.pytest.org/en/stable/explanation/goodpractices.html
+* Python documentation: [https://docs.python.org/3.14/](https://docs.python.org/3.14/)
+* pytest documentation: [https://docs.pytest.org/en/stable/](https://docs.pytest.org/en/stable/)
+* pytest good integration practices: [https://docs.pytest.org/en/stable/explanation/goodpractices.html](https://docs.pytest.org/en/stable/explanation/goodpractices.html)
