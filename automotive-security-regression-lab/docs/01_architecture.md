@@ -5,8 +5,11 @@
 The Automotive Security Regression Lab uses a fully simulated and deterministic
 architecture for reproducible automotive security testing.
 
-Phase 3 introduces a dedicated security test execution architecture that
+Phase 3 introduced a dedicated security test execution architecture that
 separates security test logic from the simulated ECU implementation.
+
+Phase 4 adds a dedicated Evidence Framework that records the result of a test
+execution without coupling evidence generation to the ECU.
 
 The architecture remains intentionally limited to a controlled simulation.
 It does not implement a real CAN or UDS stack and performs no network
@@ -35,7 +38,7 @@ ECU
 The current project abstracts this concept as:
 
 ```text
-Security Test
+Security Test Case
        |
        v
 Test Runner
@@ -48,6 +51,9 @@ Simulated ECU
        |
        v
 Response
+       |
+       v
+Evidence
 ```
 
 The ECU simulator is the system under test.
@@ -57,7 +63,7 @@ or production network is used.
 
 ## Test Architecture
 
-The Phase 3 architecture consists of four main runtime components:
+The current architecture consists of five logical responsibilities:
 
 ```text
 +--------------------------+
@@ -82,11 +88,21 @@ The Phase 3 architecture consists of four main runtime components:
              v
 +--------------------------+
 |         Response         |
++------------+-------------+
+             |
+             v
++--------------------------+
+|      Evidence Model      |
 +--------------------------+
 ```
 
-The architecture separates the test mechanism from the implementation of the
-system under test.
+The architecture separates:
+
+* security test definition
+* test execution
+* target interaction
+* simulated ECU behavior
+* execution evidence
 
 ## SecurityTestCase
 
@@ -117,14 +133,16 @@ Its responsibility is limited to:
 
 The runner does not access internal ECU state.
 
-It does not implement:
+Evidence generation is intentionally implemented as a separate layer. The
+Evidence Framework consumes the completed test case and test result rather than
+implementing test execution itself.
 
-* evidence generation
+The runner does not implement:
+
 * finding management
 * CI/CD
 * regression orchestration
-
-The current implementation is intentionally small.
+* ECU security policy
 
 ## ECU Adapter
 
@@ -143,34 +161,6 @@ ECUAdapter
      |
      v
 ECUSimulator
-<<<<<<< HEAD
-      |
-      v
-Request Validation
-      |
-      v
-Security Policy
-      |
-      +-------------------+
-      |                   |
-   secure             vulnerable
-      |                   |
-      v                   v
-Authorization       Access Granted
-      |
-   +--+--+
-   |     |
- denied granted
-   |     |
-   v     v
-Access   Access
-Denied   Granted
-      \   /
-       \ /
-        v
-    ECUResponse
-=======
->>>>>>> 1f817c1 (Update project structure and tests)
 ```
 
 The adapter is responsible only for forwarding requests to the configured
@@ -206,7 +196,83 @@ The simulator supports:
 * `secure`
 * `vulnerable`
 
-The simulator remains independent from the test runner and adapter layers.
+The simulator remains independent from the test runner, adapter, and evidence
+layers.
+
+The ECU simulator does not generate or store test evidence.
+
+## Evidence Framework
+
+The Evidence Framework represents one completed security test execution as
+structured evidence.
+
+Its responsibility is to document:
+
+* which test was executed
+* which target was tested
+* which preconditions existed
+* which input was used
+* what behavior was expected
+* what behavior was observed
+* whether the observation matched the expectation
+* additional notes
+
+The minimum evidence model contains:
+
+* `test_id`
+* `timestamp`
+* `target`
+* `preconditions`
+* `input`
+* `expected`
+* `actual`
+* `result`
+* `notes`
+
+The Evidence Framework can serialize the evidence model to JSON.
+
+The evidence layer does not implement ECU security behavior and does not
+modify the ECU simulator.
+
+## Evidence Flow
+
+A complete Phase 4 execution flow is:
+
+```text
+SecurityTestCase
+       |
+       | request
+       v
+SecurityTestRunner
+       |
+       | handle_request()
+       v
+ECUAdapter
+       |
+       v
+ECUSimulator
+       |
+       | ECUResponse
+       v
+SecurityTestRunner
+       |
+       | compare expected / actual
+       v
+TestResult
+       |
+       v
+EvidenceGenerator
+       |
+       v
+Evidence
+       |
+       v
+JSON
+```
+
+The Evidence Framework therefore sits after test execution.
+
+This keeps the System Under Test independent from evidence generation.
 
 ## Request and Response Flow
 
@@ -239,8 +305,17 @@ SecurityTestRunner
 TestResult
 ```
 
-The test runner therefore interacts with the target through a defined
-interface rather than accessing simulator internals.
+Evidence generation then consumes the completed execution result:
+
+```text
+TestResult
+       |
+       v
+EvidenceGenerator
+       |
+       v
+Evidence
+```
 
 ## Response Model
 
@@ -313,6 +388,33 @@ Invalid request handling remains the responsibility of the ECU simulator.
 
 The test runner only evaluates the response returned by the target.
 
+## Evidence Result Semantics
+
+The Evidence Framework supports two execution results:
+
+```text
+PASS
+FAIL
+```
+
+`PASS` means:
+
+```text
+expected == actual
+```
+
+`FAIL` means:
+
+```text
+expected != actual
+```
+
+A `FAIL` result documents a mismatch between expected and observed behavior.
+
+It does not automatically constitute a security vulnerability finding.
+
+Finding assessment belongs to a later project phase.
+
 ## Determinism
 
 The ECU simulation is deterministic.
@@ -325,11 +427,21 @@ For the same:
 
 the simulator produces the same response.
 
-This property supports reproducible automated testing.
+Evidence generation does not require:
+
+* network access
+* physical hardware
+* a real ECU
+* external services
+* random test data
+
+The timestamp is generated at runtime and is intentionally time-dependent.
+
+All other evidence content is derived from the test execution context.
 
 ## Architectural Separation
 
-The key Phase 3 principle is:
+The key architectural principle is:
 
 ```text
 Security Test Logic
@@ -342,6 +454,12 @@ Security Test Logic
         |
         v
    Security Target
+        |
+        v
+    Test Result
+        |
+        v
+     Evidence
 ```
 
 The security test does not depend on internal simulator attributes such as:
@@ -354,12 +472,15 @@ _security_policy
 
 Instead, communication occurs through the defined target interface.
 
+The Evidence Framework does not access these internal simulator attributes.
+
 This improves:
 
 * testability
 * maintainability
 * target abstraction
-* future extensibility
+* reproducibility
+* separation of responsibilities
 
 ## Simulation Boundary
 
@@ -397,74 +518,81 @@ Conceptually:
                           ^
                           |
                      Test Runner
+                          |
+                          v
+                  Evidence Framework
 ```
 
 This is a possible future extension only.
 
-No real ECU or communication adapter is implemented in Phase 3.
+No real ECU or communication adapter is implemented.
 
-## Phase 3 Verification
+## Phase 4 Scope
 
-The Phase 3 architecture was functionally exercised through three scenarios:
+Implemented in Phase 4:
 
-| Scenario                         | Expected          | Actual            | Result |
-| -------------------------------- | ----------------- | ----------------- | ------ |
-| Unauthorized protected operation | `ACCESS_DENIED`   | `ACCESS_DENIED`   | PASS   |
-| Authorized protected operation   | `ACCESS_GRANTED`  | `ACCESS_GRANTED`  | PASS   |
-| Invalid operation                | `INVALID_REQUEST` | `INVALID_REQUEST` | PASS   |
+* structured evidence model
+* mandatory evidence fields
+* evidence validation
+* `PASS` / `FAIL` semantics
+* runtime timestamp
+* JSON serialization
+* integration with the existing Phase 3 test result
+* separation of evidence generation from the ECU
+* deterministic local tests
 
-The existing pytest suite was also executed:
+Not implemented in Phase 4:
 
-```text
-10 passed in 0.04s
-```
-
-```text
-TC-ARCH-001 → ACCESS_DENIED   PASS
-TC-ARCH-002 → ACCESS_GRANTED  PASS
-TC-ARCH-003 → INVALID_REQUEST PASS
-```
-
-## Phase 3 Scope
-
-Implemented in Phase 3:
-
-* security test case abstraction
-* security test runner
-* ECU target protocol
-* ECU adapter
-* separation between test execution and ECU implementation
-* deterministic architecture verification
-
-Not implemented in Phase 3:
-
-* Evidence Framework
-* evidence files
-* execution IDs
-* CI/CD artifacts
-* complete regression suite
 * security finding management
-* root-cause workflow
+* severity management
+* CVSS calculation
+* root-cause management
+* fix tracking
+* retest workflow
+* complete security regression suite
+* CI/CD pipeline
 * real ECU communication
+* real vehicle communication
 
-These capabilities belong to later project phases.
+## Security Finding Boundary
+
+Evidence is not a vulnerability finding.
+
+Evidence answers:
+
+```text
+What was tested?
+What was expected?
+What actually happened?
+What was the test result?
+```
+
+A later finding process may answer:
+
+```text
+Is this a security issue?
+Why?
+What is the impact?
+What is the root cause?
+How should it be fixed?
+```
+
+These responsibilities remain intentionally separated.
 
 ## Architectural Principle
 
-The central Phase 3 principle is:
+The central Phase 4 principle is:
 
-**Separate the security test from the system under test.**
+**Keep evidence structured and separate from the system under test.**
 
-<<<<<<< HEAD
-This separation allows later phases to build evidence, findings, retesting, regression testing, and CI/CD capabilities around the existing deterministic ECU security target without changing the fundamental simulation boundary.
-=======
 The ECU is the simulated target.
 
 The Test Runner is the test mechanism.
 
-The Adapter connects the two.
+The Adapter connects the test mechanism to the target.
 
-This separation provides the architectural foundation for later evidence,
-finding, retest, regression, and CI/CD capabilities without implementing those
-future phases prematurely.
->>>>>>> 1f817c1 (Update project structure and tests)
+The Evidence Framework documents the resulting test observation.
+
+This separation provides the architectural foundation for later finding,
+retest, regression, and CI/CD capabilities without implementing those future
+phases prematurely.
