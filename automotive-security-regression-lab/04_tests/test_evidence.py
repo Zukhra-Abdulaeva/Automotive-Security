@@ -1,3 +1,7 @@
+import json
+
+import pytest
+
 from security_lab.evidence import (
     Evidence,
     EvidenceGenerator,
@@ -9,18 +13,35 @@ from security_lab.ecu_simulator import ECUSimulator, ResponseStatus
 from security_lab.test_runner import SecurityTestCase, SecurityTestRunner
 
 
-def test_valid_evidence_is_accepted():
-    evidence = Evidence(
-        test_id="TC-EVIDENCE-001",
-        timestamp="2026-08-23T12:00:00Z",
-        target="simulated-ecu",
-        preconditions={"authorization": False},
-        input="PROTECTED_OPERATION",
-        expected="ACCESS_DENIED",
-        actual="ACCESS_DENIED",
-        result=EvidenceResult.PASS,
-        notes="Unauthorized protected operation was rejected.",
+def create_evidence(
+    *,
+    test_id: str = "TC-EVIDENCE-001",
+    timestamp: str = "2026-08-23T12:00:00Z",
+    target: str = "simulated-ecu",
+    preconditions: dict | None = None,
+    input_data: str = "PROTECTED_OPERATION",
+    expected: str = "ACCESS_DENIED",
+    actual: str = "ACCESS_DENIED",
+    result: EvidenceResult = EvidenceResult.PASS,
+    notes: str = "Evidence test.",
+) -> Evidence:
+    """Create deterministic test evidence for unit tests."""
+
+    return Evidence(
+        test_id=test_id,
+        timestamp=timestamp,
+        target=target,
+        preconditions=preconditions or {"authorization": False},
+        input=input_data,
+        expected=expected,
+        actual=actual,
+        result=result,
+        notes=notes,
     )
+
+
+def test_valid_evidence_is_accepted():
+    evidence = create_evidence()
 
     evidence.validate()
 
@@ -37,25 +58,60 @@ def test_missing_required_field_is_rejected():
         "notes": "Test evidence.",
     }
 
-    try:
+    with pytest.raises(EvidenceValidationError):
         Evidence.from_dict(data)
-    except EvidenceValidationError:
-        return
 
-    raise AssertionError("Missing test_id must be rejected")
+
+def test_missing_input_is_rejected():
+    evidence = create_evidence(input_data=None)
+
+    with pytest.raises(EvidenceValidationError):
+        evidence.validate()
+
+
+def test_missing_notes_is_rejected():
+    evidence = create_evidence(notes="")
+
+    with pytest.raises(EvidenceValidationError):
+        evidence.validate()
+
+
+def test_invalid_timestamp_is_rejected():
+    evidence = create_evidence(timestamp="not-a-timestamp")
+
+    with pytest.raises(EvidenceValidationError):
+        evidence.validate()
+
+
+def test_timestamp_without_timezone_is_rejected():
+    evidence = create_evidence(timestamp="2026-08-23T12:00:00")
+
+    with pytest.raises(EvidenceValidationError):
+        evidence.validate()
+
+
+def test_invalid_result_is_rejected():
+    data = {
+        "test_id": "TC-EVIDENCE-INVALID-RESULT",
+        "timestamp": "2026-08-23T12:00:00Z",
+        "target": "simulated-ecu",
+        "preconditions": {"authorization": False},
+        "input": "PROTECTED_OPERATION",
+        "expected": "ACCESS_DENIED",
+        "actual": "ACCESS_DENIED",
+        "result": "UNKNOWN",
+        "notes": "Invalid result test.",
+    }
+
+    with pytest.raises(EvidenceValidationError):
+        Evidence.from_dict(data)
 
 
 def test_pass_evidence_when_expected_equals_actual():
-    evidence = Evidence(
-        test_id="TC-EVIDENCE-003",
-        timestamp="2026-08-23T12:00:00Z",
-        target="simulated-ecu",
-        preconditions={"authorization": False},
-        input="PROTECTED_OPERATION",
+    evidence = create_evidence(
         expected="ACCESS_DENIED",
         actual="ACCESS_DENIED",
         result=EvidenceResult.PASS,
-        notes="Expected behavior observed.",
     )
 
     evidence.validate()
@@ -64,12 +120,7 @@ def test_pass_evidence_when_expected_equals_actual():
 
 
 def test_fail_evidence_when_expected_differs_from_actual():
-    evidence = Evidence(
-        test_id="TC-EVIDENCE-004",
-        timestamp="2026-08-23T12:00:00Z",
-        target="simulated-ecu",
-        preconditions={"authorization": False},
-        input="PROTECTED_OPERATION",
+    evidence = create_evidence(
         expected="ACCESS_DENIED",
         actual="ACCESS_GRANTED",
         result=EvidenceResult.FAIL,
@@ -81,23 +132,51 @@ def test_fail_evidence_when_expected_differs_from_actual():
     assert evidence.result is EvidenceResult.FAIL
 
 
-def test_evidence_can_be_serialized_to_json():
-    evidence = Evidence(
-        test_id="TC-EVIDENCE-005",
-        timestamp="2026-08-23T12:00:00Z",
-        target="simulated-ecu",
-        preconditions={"authorization": False},
-        input="PROTECTED_OPERATION",
+def test_inconsistent_pass_result_is_rejected():
+    evidence = create_evidence(
+        expected="ACCESS_DENIED",
+        actual="ACCESS_GRANTED",
+        result=EvidenceResult.PASS,
+    )
+
+    with pytest.raises(EvidenceValidationError):
+        evidence.validate()
+
+
+def test_inconsistent_fail_result_is_rejected():
+    evidence = create_evidence(
         expected="ACCESS_DENIED",
         actual="ACCESS_DENIED",
-        result=EvidenceResult.PASS,
-        notes="Evidence serialization test.",
+        result=EvidenceResult.FAIL,
+    )
+
+    with pytest.raises(EvidenceValidationError):
+        evidence.validate()
+
+
+def test_evidence_can_be_serialized_to_json():
+    evidence = create_evidence(
+        test_id="TC-EVIDENCE-005",
     )
 
     serialized = evidence.to_json()
+    data = json.loads(serialized)
 
-    assert '"test_id": "TC-EVIDENCE-005"' in serialized
-    assert '"result": "PASS"' in serialized
+    assert data["test_id"] == "TC-EVIDENCE-005"
+    assert data["result"] == "PASS"
+    assert data["target"] == "simulated-ecu"
+    assert data["expected"] == "ACCESS_DENIED"
+    assert data["actual"] == "ACCESS_DENIED"
+
+
+def test_evidence_can_be_restored_from_dictionary():
+    evidence = create_evidence(
+        test_id="TC-EVIDENCE-RESTORE",
+    )
+
+    restored = Evidence.from_dict(evidence.to_dict())
+
+    assert restored == evidence
 
 
 def test_evidence_generator_uses_phase3_test_result():
@@ -112,6 +191,7 @@ def test_evidence_generator_uses_phase3_test_result():
     )
 
     result = runner.run(case)
+
     evidence = EvidenceGenerator().generate(
         case,
         result,
@@ -124,3 +204,5 @@ def test_evidence_generator_uses_phase3_test_result():
     assert evidence.expected == "ACCESS_DENIED"
     assert evidence.actual == "ACCESS_DENIED"
     assert evidence.result is EvidenceResult.PASS
+
+    evidence.validate()

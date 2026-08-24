@@ -257,7 +257,7 @@ Implemented in Phase 4:
 * runtime timestamp
 * JSON serialization
 * integration with the existing Phase 3 test result
-* deterministic local tests
+* deterministic local evidence tests
 
 Not implemented in Phase 4:
 

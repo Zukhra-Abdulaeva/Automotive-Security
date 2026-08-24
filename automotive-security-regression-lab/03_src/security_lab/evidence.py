@@ -37,14 +37,18 @@ class Evidence:
     notes: str
 
     def validate(self) -> None:
-        """Validate required fields and result semantics."""
+        """Validate required fields, structure, timestamp, and result semantics."""
+
         required_fields = {
             "test_id": self.test_id,
             "timestamp": self.timestamp,
             "target": self.target,
+            "preconditions": self.preconditions,
+            "input": self.input,
             "expected": self.expected,
             "actual": self.actual,
             "result": self.result,
+            "notes": self.notes,
         }
 
         missing_fields = [
@@ -68,6 +72,8 @@ class Evidence:
                 "result must be PASS or FAIL"
             )
 
+        self._validate_timestamp()
+
         expected_result = (
             EvidenceResult.PASS
             if self.expected == self.actual
@@ -79,8 +85,26 @@ class Evidence:
                 "result does not match expected/actual behavior"
             )
 
+    def _validate_timestamp(self) -> None:
+        """Validate that the timestamp is a parseable ISO-8601 timestamp."""
+
+        try:
+            parsed = datetime.fromisoformat(
+                self.timestamp.replace("Z", "+00:00")
+            )
+        except ValueError as exc:
+            raise EvidenceValidationError(
+                "timestamp must be a valid ISO-8601 timestamp"
+            ) from exc
+
+        if parsed.tzinfo is None:
+            raise EvidenceValidationError(
+                "timestamp must contain timezone information"
+            )
+
     def to_dict(self) -> dict[str, Any]:
         """Return the evidence as a JSON-compatible dictionary."""
+
         self.validate()
 
         return {
@@ -97,6 +121,7 @@ class Evidence:
 
     def to_json(self) -> str:
         """Serialize the evidence as formatted JSON."""
+
         return json.dumps(
             self.to_dict(),
             indent=2,
@@ -106,6 +131,12 @@ class Evidence:
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> Evidence:
         """Create and validate evidence from a mapping."""
+
+        if not isinstance(data, Mapping):
+            raise EvidenceValidationError(
+                "evidence data must be a mapping"
+            )
+
         required_fields = {
             "test_id",
             "timestamp",
@@ -142,6 +173,7 @@ class Evidence:
             result=result,
             notes=data["notes"],
         )
+
         evidence.validate()
         return evidence
 
@@ -159,6 +191,7 @@ class EvidenceGenerator:
         notes: str = "",
     ) -> Evidence:
         """Generate evidence for one completed security test execution."""
+
         actual = result.actual_status.value
         expected = result.expected_status.value
 
