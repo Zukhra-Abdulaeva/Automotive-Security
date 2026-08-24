@@ -576,7 +576,7 @@ The current pytest suite contains:
 25 tests
 ```
 
-est distribution:
+Test distribution:
 
 04_tests/test_ecu_simulator.py: 6
 04_tests/test_evidence.py: 14
