@@ -1,41 +1,27 @@
+Ja. Ich würde die README **nicht künstlich „unprofessioneller“ machen**, sondern die KI-Merkmale durch eine bessere technische Dokumentationsstruktur entfernen: weniger Wiederholung, weniger Meta-Erklärungen, konkrete Implementierungsbezüge, klare Trennung zwischen **implementiert**, **modelliert** und **zukünftig**.
+
+Hier ist eine überarbeitete Fassung. Sie ist bewusst **technischer, präziser und natürlicher** formuliert und behält die fachliche Informationsqualität von Phase 5 bei.
+
+````markdown
 # Automotive Security Regression Lab
 
 **From Security Finding to Reproducible Automotive Security Tests**
 
 ## Project
 
-The **Automotive Security Regression Lab** is a fully simulated and controlled laboratory for demonstrating a reproducible automotive cybersecurity testing and regression workflow.
+The **Automotive Security Regression Lab** is a local, deterministic simulation environment for developing and demonstrating an automotive cybersecurity testing workflow.
 
-The project is intentionally limited to simulation. It does not interact with real vehicles, real ECUs, OEM systems, customer data, production systems, or external vehicle networks.
+The project models how a security requirement can be translated into a security test, executed against a simulated ECU, evaluated against expected behavior, and captured as structured evidence.
 
-> **Project scope:** simulated automotive security testing, deterministic security verification, evidence-oriented test execution, controlled security assessment, and reproducible regression engineering.
+The laboratory does not connect to real vehicles, ECUs, vehicle networks, OEM infrastructure, or production systems. No real CAN or UDS communication is implemented.
 
-The repository is designed as an engineering demonstration project. It shows how security-testing activities can be structured, automated, verified, documented, and progressively connected into a complete security regression workflow.
-
-The project does **not** claim professional penetration-testing experience or real-world vehicle security testing experience. It demonstrates a structured and reproducible methodology within a controlled simulation environment.
+The project is an engineering demonstration. It does not claim professional penetration-testing experience, real-world ECU assessment experience, or production cybersecurity validation.
 
 ---
 
-## Why this project exists
+# Project Vision
 
-Automotive cybersecurity testing is not only about executing a security test.
-
-A professional engineering workflow must also be able to answer:
-
-- What security behavior was tested?
-- Which test case was executed?
-- What was the expected result?
-- What did the simulated target actually return?
-- When and under which execution context was the test performed?
-- Can the result be reproduced?
-- Can the result be stored as structured evidence?
-- Can the evidence later support a security finding?
-- Can the same test eventually be executed again after a fix?
-- Can the resulting regression test become part of CI/CD?
-
-The Automotive Security Regression Lab develops these capabilities incrementally.
-
-The intended long-term workflow is:
+The long-term workflow is:
 
 ```text
 Security Requirement
@@ -59,61 +45,485 @@ Retest
 Regression Test
         ↓
 CI/CD
-```
+````
 
-Phase 4 establishes the **Evidence Framework** required to make security-test execution observable, structured, and reproducible.
-
----
-
-# Current Phase
-
-## Phase 4 — Evidence Framework
-
-Phase 4 extends the Phase-3 security test architecture with a dedicated evidence layer.
-
-The central Phase-4 objective is:
-
-> **Transform a deterministic security-test execution into structured, reproducible execution evidence.**
-
-Phase 3 established the mechanism for executing a security test against the simulated ECU.
-
-Phase 4 adds the capability to represent the outcome of that execution as structured evidence without coupling evidence management to the ECU implementation.
-
-The architecture therefore evolves from:
+The current implementation covers the following part of this workflow:
 
 ```text
+Security Requirement
+        ↓
 Security Test Case
         ↓
-Test Runner
-        ↓
-ECU Adapter
-        ↓
-Simulated ECU
-        ↓
-Response
-        ↓
-Test Result
-```
-
-to:
-
-```text
-Security Test Case
-        ↓
-Test Runner
-        ↓
-ECU Adapter
-        ↓
-Simulated ECU
+Test Execution
         ↓
 ECU Response
         ↓
 Test Result
         ↓
+Structured Evidence
+```
+
+The project is developed incrementally. Each phase adds functionality on top of the previously verified architecture.
+
+---
+
+# Current Phase
+
+## Phase 5 — TC-001 Diagnostic Authorization
+
+**Status: Implemented and locally verified**
+
+Phase 5 introduces the first dedicated automotive security test case:
+
+```text
+TC-001 — Diagnostic Authorization
+```
+
+TC-001 verifies the security requirement:
+
+> **Protected diagnostic operations shall require authorization.**
+
+The test operates on the simulated protected operation:
+
+```text
+PROTECTED_OPERATION
+```
+
+and the simulated authorization state:
+
+```text
+authorization = false
+authorization = true
+```
+
+The secure ECU behavior is:
+
+```text
+authorization = false
+        +
+PROTECTED_OPERATION
+        ↓
+ACCESS_DENIED
+```
+
+and:
+
+```text
+authorization = true
+        +
+PROTECTED_OPERATION
+        ↓
+ACCESS_GRANTED
+```
+
+The simulator also provides a controlled vulnerable mode:
+
+```text
+authorization = false
+        +
+PROTECTED_OPERATION
+        ↓
+ACCESS_GRANTED
+```
+
+This vulnerable behavior represents the security-relevant deviation that TC-001 is designed to detect.
+
+It is a deterministic local simulation and is not a claim about a real ECU.
+
+---
+
+# What Phase 5 Adds
+
+Phase 5 connects the existing test architecture and Evidence Framework to a concrete security scenario.
+
+TC-001 verifies:
+
+1. unauthorized protected access is denied by the secure ECU
+2. authorized protected access is granted by the secure ECU
+3. the vulnerable ECU reproduces the modeled authorization deviation
+4. expected and actual behavior are evaluated by the existing test runner
+5. the execution can be represented as structured evidence
+6. the same test definition can be reused for a later simulated retest
+
+The test therefore verifies a security property rather than only normal functional behavior.
+
+---
+
+# TC-001 Security Scenario
+
+TC-001 models a diagnostic requester attempting to execute a protected operation.
+
+```text
+Diagnostic Interface
+        ↓
+Protected Operation
+        ↓
+Authorization Check
+        ↓
+Response
+```
+
+The interface is entirely simulated. The scenario does not require a real diagnostic protocol, vehicle network, ECU, CAN bus, or UDS implementation.
+
+---
+
+# TC-001 Threat Model
+
+### Asset
+
+**Protected Diagnostic Operation**
+
+### Threat
+
+Unauthorized execution of a protected diagnostic operation.
+
+### Potential Attacker
+
+Unauthorized diagnostic client.
+
+### Security Property
+
+Authorization must be enforced before the protected operation is granted.
+
+### Security Assumption
+
+The simulated ECU is responsible for enforcing authorization for the protected operation.
+
+The threat model is intentionally limited to the behavior represented by the simulator.
+
+---
+
+# TC-001 Attack Hypothesis
+
+The test hypothesis is:
+
+> If authorization is missing or incorrectly enforced, an unauthorized diagnostic requester may be able to execute a protected operation.
+
+TC-001 evaluates this hypothesis using:
+
+```text
+authorization = false
+PROTECTED_OPERATION
+```
+
+The expected secure response is:
+
+```text
+ACCESS_DENIED
+```
+
+The vulnerable simulation produces:
+
+```text
+ACCESS_GRANTED
+```
+
+The authorized positive case is also verified:
+
+```text
+authorization = true
+PROTECTED_OPERATION
+        ↓
+ACCESS_GRANTED
+```
+
+---
+
+# TC-001 Test Architecture
+
+TC-001 uses the architecture established in Phases 3 and 4.
+
+```text
+TC-001
+  ↓
+SecurityTestRunner
+  ↓
+ECUAdapter
+  ↓
+ECUSimulator
+  ↓
+ECU Response
+  ↓
+TestResult
+  ↓
 Evidence
 ```
 
-The evidence layer is deliberately introduced as a separate architectural concern.
+The test does not access internal ECU implementation details directly.
+
+The responsibilities are separated as follows:
+
+| Component            | Responsibility                                               |
+| -------------------- | ------------------------------------------------------------ |
+| `SecurityTestCase`   | Defines the security scenario and expected behavior          |
+| `SecurityTestRunner` | Executes the test and evaluates expected vs. actual behavior |
+| `ECUTarget`          | Defines the target interface                                 |
+| `ECUAdapter`         | Connects the target interface to the simulator               |
+| `ECUSimulator`       | Implements the simulated ECU behavior                        |
+| `TestResult`         | Represents the evaluated execution result                    |
+| `Evidence`           | Records structured execution evidence                        |
+
+This keeps the security test independent from the concrete ECU implementation.
+
+---
+
+# TC-001 Test Scenarios
+
+TC-001 contains four verification scenarios:
+
+| Scenario                       | ECU Mode              | Authorization | Operation               | Expected Result   |
+| ------------------------------ | --------------------- | ------------: | ----------------------- | ----------------- |
+| Unauthorized access            | Secure                |       `false` | `PROTECTED_OPERATION`   | `ACCESS_DENIED`   |
+| Authorized access              | Secure                |        `true` | `PROTECTED_OPERATION`   | `ACCESS_GRANTED`  |
+| Vulnerable unauthorized access | Vulnerable            |       `false` | `PROTECTED_OPERATION`   | `ACCESS_GRANTED`  |
+| Invalid request                | Controlled simulation |             — | Invalid operation/input | `INVALID_REQUEST` |
+
+The third scenario is the security-relevant case.
+
+When evaluated against the security requirement, it produces:
+
+```text
+Expected = ACCESS_DENIED
+Actual   = ACCESS_GRANTED
+Result   = FAIL
+```
+
+The test therefore detects the modeled authorization deviation.
+
+---
+
+# Secure ECU Behavior
+
+The secure simulator enforces authorization before granting the protected operation.
+
+Unauthorized:
+
+```text
+Authorization = false
+        ↓
+PROTECTED_OPERATION
+        ↓
+ACCESS_DENIED
+```
+
+Authorized:
+
+```text
+Authorization = true
+        ↓
+PROTECTED_OPERATION
+        ↓
+ACCESS_GRANTED
+```
+
+The security test verifies this behavior through the target abstraction.
+
+The expected result is derived from the security requirement and is not changed to match the implementation.
+
+---
+
+# Controlled Vulnerable ECU Behavior
+
+The vulnerable simulator intentionally omits effective authorization enforcement for the protected operation.
+
+```text
+Authorization = false
+        ↓
+PROTECTED_OPERATION
+        ↓
+ACCESS_GRANTED
+```
+
+This provides a deterministic security-test condition.
+
+The vulnerable mode is used to demonstrate:
+
+* expected-versus-actual comparison
+* security-relevant test failure
+* structured evidence
+* security observation
+* later retesting
+
+It does not represent a real vulnerable vehicle, ECU, or production system.
+
+---
+
+# Evidence Integration
+
+Phase 4 introduced the Evidence Framework used by TC-001.
+
+The execution path is:
+
+```text
+TC-001
+  ↓
+TestResult
+  ↓
+Evidence
+```
+
+A vulnerable TC-001 execution can be represented as:
+
+```json
+{
+  "test_id": "TC-001",
+  "target": "simulated-ecu",
+  "preconditions": {
+    "authorization": false
+  },
+  "input": "PROTECTED_OPERATION",
+  "expected": "ACCESS_DENIED",
+  "actual": "ACCESS_GRANTED",
+  "result": "FAIL",
+  "notes": "Protected operation was accepted without authorization."
+}
+```
+
+The timestamp is generated by the Evidence Framework during execution.
+
+Evidence records the observation. It does not by itself constitute a formal security finding.
+
+---
+
+# Evidence Semantics
+
+The Evidence Framework evaluates the relationship between expected and actual behavior:
+
+```text
+PASS
+Expected behavior == Actual behavior
+
+FAIL
+Expected behavior != Actual behavior
+```
+
+For the vulnerable TC-001 scenario:
+
+```text
+Expected = ACCESS_DENIED
+Actual   = ACCESS_GRANTED
+```
+
+the resulting evidence state is:
+
+```text
+FAIL
+```
+
+This means that the observed behavior does not satisfy the expected security behavior.
+
+It does not independently assign vulnerability severity, CVSS, customer impact, or production vulnerability status.
+
+---
+
+# TC-001 Security Observation
+
+The vulnerable execution demonstrates the following deviation:
+
+```text
+Unauthorized request
+        ↓
+Protected operation accepted
+        ↓
+Expected authorization control not enforced
+```
+
+The modeled security requirement is:
+
+> **Protected diagnostic operations shall require authorization.**
+
+Therefore:
+
+```text
+Expected = ACCESS_DENIED
+Actual   = ACCESS_GRANTED
+```
+
+is a security-relevant deviation.
+
+Phase 5 does not assign a formal vulnerability identifier or severity.
+
+The following remain outside the current implementation:
+
+* CVSS
+* formal vulnerability classification
+* customer impact assessment
+* production impact assessment
+* security finding management
+
+---
+
+# TC-001 Root Cause Model
+
+For the controlled vulnerable simulator, the modeled root cause is:
+
+> **The authorization state is not enforced before the protected operation is granted.**
+
+This describes the behavior implemented by the simulator.
+
+It is not intended as a root-cause claim about a real ECU.
+
+---
+
+# TC-001 Fix Model
+
+The corrective behavior is implemented in the simulated ECU.
+
+The required control flow is:
+
+```text
+Authorization Decision
+        ↓
+Protected Operation
+```
+
+Unauthorized:
+
+```text
+authorization = false
+PROTECTED_OPERATION
+        ↓
+ACCESS_DENIED
+```
+
+Authorized:
+
+```text
+authorization = true
+PROTECTED_OPERATION
+        ↓
+ACCESS_GRANTED
+```
+
+The security test is not weakened to make the implementation pass.
+
+The security requirement and expected result remain unchanged.
+
+---
+
+# TC-001 Retest Model
+
+After correcting the simulated ECU behavior, the same TC-001 test case can be executed again.
+
+```text
+Vulnerable Behavior
+        ↓
+Evidence
+        ↓
+Simulated Fix
+        ↓
+Same TC-001
+        ↓
+Retest
+        ↓
+Secure Behavior
+```
+
+The important regression principle is that the original security test remains unchanged.
+
+The system under test is corrected, and the existing test is reused to determine whether the security requirement is now satisfied.
+
+The project currently models this retest workflow. A generalized automated regression workflow belongs to a later phase.
 
 ---
 
@@ -121,46 +531,48 @@ The evidence layer is deliberately introduced as a separate architectural concer
 
 ## Phase 1 — Repository Foundation
 
-Phase 1 established the repository and development foundation.
+Established:
 
-Implemented capabilities include:
-
-* Python project metadata
+* Python project configuration
 * pytest configuration
 * repository structure
-* documentation foundation
-* project scope definition
+* documentation structure
+* project scope
 * initial architectural decisions
-
-The project was explicitly constrained to a controlled simulation environment.
+* deterministic local development environment
 
 ---
 
 ## Phase 2 — ECU Simulation
 
-Phase 2 implemented the deterministic simulated ECU.
+Implemented the deterministic simulated ECU with:
 
-The ECU simulator provides:
-
-* secure security mode
-* vulnerable security mode
-* explicit authorization state
+* secure mode
+* vulnerable mode
+* authorization state
 * protected operation handling
 * request validation
 * deterministic response statuses
 * structured ECU responses
 
-The simulator intentionally does not implement a real CAN or UDS stack.
+The simulator does not implement a real CAN or UDS stack.
 
-No network communication is performed.
+### Phase 2 Test Coverage
+
+The ECU tests verify:
+
+1. secure mode denies unauthorized access
+2. secure mode grants authorized access
+3. vulnerable mode grants unauthorized access
+4. unknown operations are rejected
+5. invalid request input is rejected
+6. invalid parameter structures are rejected
 
 ---
 
 ## Phase 3 — Security Test Architecture
 
-Phase 3 separated security-test logic from the simulated system under test.
-
-The architecture introduced:
+Introduced:
 
 * `SecurityTestCase`
 * `SecurityTestRunner`
@@ -168,248 +580,233 @@ The architecture introduced:
 * `ECUTarget`
 * `ECUAdapter`
 
-The test runner communicates with the simulated target through the `ECUTarget` abstraction rather than accessing ECU implementation details directly.
+The resulting execution path is:
 
-This established the architectural foundation required for reusable security tests and later evidence generation.
+```text
+Security Test Case
+        ↓
+Test Runner
+        ↓
+ECU Adapter
+        ↓
+ECU Simulator
+        ↓
+Response
+        ↓
+Test Result
+```
+
+The runner communicates with the target through `ECUTarget` instead of depending directly on `ECUSimulator`.
+
+### Phase 3 Verification
+
+| Test ID       | Scenario                                    | Expected          | Actual            | Result |
+| ------------- | ------------------------------------------- | ----------------- | ----------------- | ------ |
+| `TC-ARCH-001` | Unauthorized protected operation            | `ACCESS_DENIED`   | `ACCESS_DENIED`   | PASS   |
+| `TC-ARCH-002` | Authorized protected operation              | `ACCESS_GRANTED`  | `ACCESS_GRANTED`  | PASS   |
+| `TC-ARCH-003` | Invalid operation                           | `INVALID_REQUEST` | `INVALID_REQUEST` | PASS   |
+| `TC-ARCH-004` | Vulnerable unauthorized protected operation | `ACCESS_GRANTED`  | `ACCESS_GRANTED`  | PASS   |
 
 ---
 
 ## Phase 4 — Evidence Framework
 
-Phase 4 introduces structured evidence handling.
+Introduced the structured Evidence Framework.
 
-The evidence layer provides a dedicated representation of test-execution information.
-
-The purpose is to ensure that a test result is not only evaluated in memory but can also be represented as structured evidence for later analysis and documentation.
-
-Phase 4 focuses specifically on:
-
-* evidence representation
-* deterministic evidence content
-* association between a test result and its evidence
-* separation of evidence handling from ECU behavior
-* reproducible evidence generation
-* validation of the evidence model through automated tests
-
-Phase 4 does **not** implement security findings, root-cause analysis, remediation, retesting workflows, regression orchestration, or CI/CD.
-
-Those capabilities remain intentionally deferred to later phases.
-
----
-
-# Phase-4 Architecture
-
-The current architecture is:
+Primary implementation:
 
 ```text
-                    Security Test Case
-                           │
-                           ▼
-                    Security Test Runner
-                           │
-                           ▼
-                       ECUTarget
-                           │
-                           ▼
-                       ECUAdapter
-                           │
-                           ▼
-                     Simulated ECU
-                           │
-                           ▼
-                      ECU Response
-                           │
-                           ▼
-                       Test Result
-                           │
-                           ▼
-                         Evidence
+03_src/security_lab/evidence.py
 ```
 
-The architecture establishes a clear separation of responsibilities.
+Framework tests:
 
-### Security Test Case
+```text
+04_tests/test_evidence.py
+```
 
-`SecurityTestCase` describes what should be tested.
+The data flow is:
 
-It represents the test definition rather than the implementation of the simulated ECU.
+```text
+Security Test Case
+        ↓
+Security Test Runner
+        ↓
+ECU Adapter
+        ↓
+ECU Simulator
+        ↓
+Test Result
+        ↓
+Evidence Generator
+        ↓
+Evidence Model
+        ↓
+JSON
+```
 
-The test case contains the information required by the runner to execute and evaluate the scenario.
+The Evidence model contains:
 
----
+* `test_id`
+* `timestamp`
+* `target`
+* `preconditions`
+* `input`
+* `expected`
+* `actual`
+* `result`
+* `notes`
 
-### Security Test Runner
+Supported result states:
 
-`SecurityTestRunner` controls test execution.
+```text
+PASS
+FAIL
+```
 
-Its responsibility is to:
+Evidence validation rejects invalid or incomplete records through:
 
-1. accept a security test case
-2. send the request through the target abstraction
-3. receive the ECU response
-4. compare expected and actual behavior
-5. create a structured test result
-6. provide the result to the evidence layer
+```text
+EvidenceValidationError
+```
 
-The runner does not access internal ECU state.
-
-It therefore remains independent from the concrete ECU implementation.
-
----
-
-### ECU Target
-
-`ECUTarget` defines the interface through which the security test communicates with the system under test.
-
-The target abstraction prevents the test runner from depending directly on a concrete simulator implementation.
-
-This creates a stable boundary for future target implementations while keeping the current project fully simulated.
-
----
-
-### ECU Adapter
-
-`ECUAdapter` connects the abstract target interface to the concrete `ECUSimulator`.
-
-The adapter is responsible for target communication within the simulation.
-
-It does not contain security-test logic and does not implement findings or remediation handling.
-
----
-
-### Simulated ECU
-
-`ECUSimulator` remains responsible for simulated ECU behavior.
-
-It provides:
-
-* secure and vulnerable security modes
-* explicit authorization handling
-* protected operation handling
-* request validation
-* deterministic response statuses
-* structured ECU responses
-
-The ECU simulator remains isolated from the evidence framework.
+Evidence also supports runtime timestamp generation and JSON serialization through the existing `to_dict()` and `to_json()` interfaces.
 
 ---
 
-### Test Result
+## Phase 5 — TC-001 Diagnostic Authorization
 
-`TestResult` represents the evaluated outcome of a security-test execution.
+Introduced:
 
-It provides the boundary between test execution and evidence generation.
-
-This separation is important because a test result represents an evaluation, while evidence represents the structured information retained from that evaluation.
-
----
-
-### Evidence
-
-The Phase-4 evidence layer provides a structured representation of execution evidence.
-
-Evidence is intentionally treated as a separate concern from both:
-
-* the simulated ECU
-* the security-test execution mechanism
-
-This separation allows later phases to build findings and regression workflows on top of stable execution evidence without modifying the ECU simulation.
+* `TC-001 — Diagnostic Authorization`
+* secure unauthorized scenario
+* secure authorized scenario
+* controlled vulnerable unauthorized scenario
+* invalid-request scenario
+* automated TC-001 tests
+* integration with the Phase-3 test architecture
+* integration with the Phase-4 Evidence Framework
+* a defined simulated fix/retest model
 
 ---
 
-# Evidence Engineering Principles
+# Current Architecture
 
-Phase 4 follows several principles.
+The current architecture combines the verified capabilities of Phases 1–5:
 
-## 1. Evidence must be deterministic
+```text
+Security Requirement
+        ↓
+Threat Model
+        ↓
+Attack Hypothesis
+        ↓
+Security Test Case
+        ↓
+Security Test Runner
+        ↓
+ECUTarget
+        ↓
+ECUAdapter
+        ↓
+Simulated ECU
+        ↓
+ECU Response
+        ↓
+TestResult
+        ↓
+Evidence
+```
 
-The same test scenario executed against the same deterministic target state must produce equivalent evidence.
-
-Evidence must not depend on uncontrolled external systems.
-
----
-
-## 2. Evidence must be structured
-
-Evidence should be represented using explicit fields rather than relying only on free-form text.
-
-Structured evidence can later be consumed by:
-
-* reporting
-* finding generation
-* regression analysis
-* automated validation
-* CI/CD pipelines
-
----
-
-## 3. Evidence must remain traceable to the test
-
-Evidence must be associated with the security-test execution that produced it.
-
-The evidence layer therefore remains connected to the test result rather than directly to internal ECU implementation details.
+The implementation separates the security requirement, test definition, execution mechanism, target implementation, and evidence representation.
 
 ---
 
-## 4. Evidence must not contain hidden ECU logic
+# Architectural Principles
 
-The evidence framework records execution information.
+## Separate the security test from the system under test
 
-It does not determine the security behavior of the ECU.
+```text
+Security Test
+      ↓
+Test Runner
+      ↓
+ECU Adapter
+      ↓
+Security Target
+```
 
-Security behavior remains the responsibility of the simulated target.
-
----
-
-## 5. Evidence generation must not change test behavior
-
-The introduction of evidence handling must not modify the security decision of the ECU or alter the expected result of the test.
-
-Evidence is an observation and recording layer.
-
-It is not part of the security policy.
+The test runner does not depend directly on the concrete ECU implementation.
 
 ---
 
-## 6. Evidence must support reproducibility
+## Separate execution from evidence
 
-A security test should be capable of being executed repeatedly and evaluated consistently.
+```text
+Test Execution
+      ↓
+Test Result
+      ↓
+Evidence
+```
 
-The evidence model therefore provides a foundation for later:
-
-* retesting
-* regression testing
-* comparison of executions
-* automated reporting
-* CI/CD verification
-
----
-
-# Phase-4 Security Test Scenarios
-
-The Phase-4 evidence framework operates on the deterministic security-test
-architecture established in Phase 3.
-
-The evidence tests verify that evidence can be generated from executed
-`SecurityTestCase` and `TestResult` objects.
-
-The underlying simulated ECU scenarios include:
-
-| Scenario | Expected Response |
-| --- | --- |
-| Unauthorized protected operation in secure mode | `ACCESS_DENIED` |
-| Authorized protected operation in secure mode | `ACCESS_GRANTED` |
-| Invalid operation | `INVALID_REQUEST` |
-| Unauthorized protected operation in vulnerable mode | `ACCESS_GRANTED` |
-
-The evidence layer does not hard-code these ECU security decisions.
-It records the expected and actual result produced by the test execution.
+Evidence records execution results without controlling ECU behavior.
 
 ---
 
-# Phase-4 Verification
+## Keep the simulated ECU deterministic
 
-The current repository contains 25 pytest test cases.
+```text
+Same Input
+    +
+Same ECU State
+    ↓
+Same Security Decision
+```
+
+The secure and vulnerable simulator modes are both deterministic.
+
+---
+
+## Keep the security requirement separate from the test implementation
+
+The requirement is:
+
+```text
+Protected diagnostic operations shall require authorization.
+```
+
+TC-001 verifies that requirement.
+
+The expected result must not be changed simply because the implementation currently behaves differently.
+
+---
+
+## Fix the system under test, not the security test
+
+A security-relevant deviation is corrected in the simulated ECU.
+
+The original test remains the verification mechanism for the security property.
+
+---
+
+# Verification
+
+The current repository has been locally verified with the complete pytest suite.
+
+Latest complete execution:
+
+```text
+pytest -q
+```
+
+Result:
+
+```text
+............................. [100%]
+
+29 passed
+```
 
 Current test distribution:
 
@@ -418,65 +815,64 @@ Current test distribution:
 04_tests/test_evidence.py: 14
 04_tests/test_foundation.py: 1
 04_tests/test_test_runner.py: 4
+04_tests/test_tc001_diagnostic_authorization.py: 4
 ```
 
-The current collection was verified with:
+Total:
 
 ```text
-python -m pytest --collect-only -q
+29 tests
 ```
 
-The complete test suite must be executed with:
+The dedicated TC-001 module was also executed independently:
 
 ```text
-python -m pytest -q
+pytest -q .\test_tc001_diagnostic_authorization.py
 ```
 
-Phase 4 is considered complete only after the complete pytest suite has
-passed and the final repository quality gate has been reviewed.
+Result:
 
-The successful test execution confirms that the current Phase-4 implementation preserves the behavior established in earlier phases while adding the evidence layer.
+```text
+.... [100%]
 
-The verification covers the existing ECU behavior, test architecture, and Phase-4 evidence functionality.
+4 passed
+```
 
-The exact test count is intentionally reported from the latest local verification rather than being treated as a permanent project invariant.
+The complete suite subsequently passed with:
+
+```text
+29 passed
+```
+
+This confirms that TC-001 was integrated without breaking the previously established ECU simulation, security-test architecture, Evidence Framework, or foundation tests.
+
+The test count is a snapshot of the repository state at the time of verification.
 
 ---
 
-# Evidence Framework Scope
+# Testing Philosophy
 
-Phase 4 implements:
+Automated tests verify both the simulated security target and the security-test infrastructure.
 
-* structured evidence representation
-* evidence generation associated with test execution
-* deterministic evidence content
-* separation between test results and evidence
-* automated evidence validation
-* preservation of the Phase-3 test architecture
-* reproducible evidence-oriented execution
+The current verification layers are:
 
-Phase 4 does **not** implement:
+```text
+ECU Simulation Tests
+        ↓
+Security Test Architecture Tests
+        ↓
+Evidence Framework Tests
+        ↓
+TC-001 Security Test
+        ↓
+Complete pytest Suite
+```
 
-* security findings
-* vulnerability classification
-* root-cause analysis
-* remediation tracking
-* fix implementation
-* retest orchestration
-* regression orchestration
-* CI/CD pipelines
-* real ECU communication
-* real CAN communication
-* real UDS communication
-* network-based vehicle interaction
-
-These capabilities belong to later phases.
+Testing the infrastructure itself helps identify regressions in the mechanisms used to execute and evaluate security tests.
 
 ---
 
 # Repository Structure
-
-The current repository structure is:
 
 ```text
 automotive-security-regression-lab/
@@ -517,7 +913,8 @@ automotive-security-regression-lab/
 │   ├── test_ecu_simulator.py
 │   ├── test_evidence.py
 │   ├── test_foundation.py
-│   └── test_test_runner.py
+│   ├── test_test_runner.py
+│   └── test_tc001_diagnostic_authorization.py
 │
 ├── 05_examples/
 │   └── .gitkeep
@@ -527,190 +924,188 @@ automotive-security-regression-lab/
         └── .gitkeep
 ```
 
-The `.gitkeep` files exist only to preserve otherwise empty directories in the Git working tree. They contain no project logic.
+The `.gitkeep` files only preserve otherwise empty directories in Git. They contain no project logic.
 
 ---
 
 # Technology Baseline
 
-The primary technology baseline is:
+The project currently uses:
 
 * Python
 * pytest
-* standard Python library components where practical
+* Python standard library components where practical
 
-The project intentionally avoids unnecessary runtime dependencies.
+The implementation intentionally keeps runtime dependencies small.
 
-The architecture is designed to remain understandable, deterministic, and easy to execute in a clean local environment.
+The laboratory is:
 
----
-
-# Testing Philosophy
-
-The project uses automated tests as an engineering verification mechanism.
-
-Tests are intended to verify both:
-
-1. the behavior of the simulated security target
-2. the correctness of the security-test infrastructure
-
-This distinction is important.
-
-The project does not treat the test framework itself as trusted without verification.
-
-The test infrastructure is also tested.
-
-The current test layers cover:
-
-```text
-ECU Simulation Tests
-        ↓
-Test Architecture Tests
-        ↓
-Evidence Framework Tests
-        ↓
-Complete pytest Suite
-```
-
-This layered approach provides a foundation for later regression testing.
+* locally executable
+* deterministic
+* hardware-independent
+* network-independent
+* reproducible
 
 ---
 
-# Architectural Principles
+# Security Scope and Safety Boundary
 
-The project currently follows these core architectural principles:
+The laboratory is fully simulated and runs locally.
 
-### Separate the security test from the system under test
+It does not:
 
-```text
-Security Test
-      ↓
-Test Runner
-      ↓
-ECU Adapter
-      ↓
-Security Target
-```
+* connect to real vehicles or ECUs
+* send traffic to vehicle networks
+* interact with OEM infrastructure
+* access customer data
+* use production credentials
+* interact with production systems
+* perform unauthorized security testing
+* implement real CAN communication
+* implement real UDS communication
 
-### Separate execution from evidence
+The vulnerable ECU mode is a controlled test condition within the simulator.
 
-```text
-Test Execution
-      ↓
-Test Result
-      ↓
-Evidence
-```
-
-### Keep the simulated ECU deterministic
-
-```text
-Same Input
-    +
-Same ECU State
-    ↓
-Same Security Decision
-    ↓
-Same Expected Result
-```
-
-### Introduce later workflow stages only when their architectural prerequisites exist
-
-The project deliberately develops the workflow incrementally.
-
-Evidence is introduced before findings.
-
-Findings will be introduced before root-cause analysis.
-
-Root-cause analysis will precede fix and retest workflows.
-
-Regression automation will build on validated retesting behavior.
-
-CI/CD will build on a stable regression suite.
-
-This prevents later functionality from being implemented prematurely or coupled incorrectly to earlier layers.
-
----
-
-# Current Project Status
-
-**Phase 4 — Evidence Framework**
-
-The current project status is:
-
-**Status: Verification / Quality Gate**
-
-Completed phases:
-
-* Phase 1 — Repository Foundation
-* Phase 2 — ECU Simulation
-* Phase 3 — Security Test Architecture
-* Phase 4 — Evidence Framework
-
-Phase 4 extends the previously established architecture without changing the fundamental security-target model.
-
-The project now contains a deterministic path from:
-
-```text
-Security Test Case
-        ↓
-Test Execution
-        ↓
-ECU Response
-        ↓
-Test Result
-        ↓
-Structured Evidence
-```
-
-This represents the first complete execution-to-evidence path within the laboratory.
+It must not be interpreted as evidence of a vulnerability in a real vehicle, ECU, OEM system, or production environment.
 
 ---
 
 # Phase Boundaries
 
-Phase 4 intentionally stops at the evidence layer.
+Phase 5 is limited to TC-001 Diagnostic Authorization.
 
-The following phases remain outside the current implementation:
+The following capabilities are not part of the current implementation:
 
-* Phase 5 — TC-001 Diagnostic Authorization
-* Phase 6 — TC-002 Message Validation
-* Phase 7 — TC-003 Regression Workflow
-* Phase 8 — Example Findings
-* Phase 9 — pytest Regression Suite
-* Phase 10 — CI/CD
-* Phase 11 — End-to-End Assessment
-* Phase 12 — Professional Documentation
-* Phase 13 — Technical Review
-* Phase 14 — Recruiter / Interview Review
+* generalized security finding management
+* formal vulnerability classification
+* severity management
+* CVSS calculation
+* customer security reporting
+* production impact assessment
+* generalized root-cause management
+* generalized remediation tracking
+* automated regression orchestration
+* CI/CD workflows
+* real ECU communication
+* real CAN communication
+* real UDS communication
+* real vehicle-network interaction
 
-No implementation from these later phases is included in Phase 4.
-
-This boundary is intentional and is part of the project's incremental development strategy.
+These capabilities are reserved for later phases.
 
 ---
 
-# What Phase 4 Demonstrates
+# Current Project Status
 
-Phase 4 demonstrates that a security test can be treated as an engineering artifact rather than only as an assertion.
+### Implemented
 
-The execution now has a conceptual lifecycle:
+**Phase 1**
+
+* repository foundation
+* Python project configuration
+* pytest-based verification
+* documentation structure
+* project scope
+
+**Phase 2**
+
+* deterministic ECU simulation
+* secure mode
+* vulnerable mode
+* authorization state
+* protected operation
+* request validation
+* structured responses
+
+**Phase 3**
+
+* `SecurityTestCase`
+* `SecurityTestRunner`
+* `TestResult`
+* `ECUTarget`
+* `ECUAdapter`
+* separation between test execution and ECU implementation
+
+**Phase 4**
+
+* structured Evidence model
+* required-field validation
+* PASS / FAIL semantics
+* timestamp generation
+* JSON serialization
+* evidence generation from test execution
+
+**Phase 5**
+
+* `TC-001 — Diagnostic Authorization`
+* secure unauthorized scenario
+* secure authorized scenario
+* controlled vulnerable unauthorized scenario
+* invalid-request scenario
+* automated TC-001 tests
+* integration with the existing test architecture
+* integration with the Evidence Framework
+* simulated fix/retest model
+
+---
+
+# Current Verification State
+
+The latest complete local verification reports:
 
 ```text
-Define Test
-    ↓
-Execute Test
-    ↓
-Observe Target
-    ↓
-Evaluate Result
-    ↓
-Create Evidence
-    ↓
-Preserve Evidence
+29 passed
 ```
 
-This provides the foundation for the next stage of the project:
+The verified scope is:
+
+```text
+Phase 2 ECU Simulation
+        +
+Phase 3 Security Test Architecture
+        +
+Phase 4 Evidence Framework
+        +
+Phase 5 TC-001
+        ↓
+Complete pytest Verification
+```
+
+The implementation remains fully local and deterministic.
+
+---
+
+# What the Project Demonstrates
+
+The current laboratory demonstrates a traceable security-test workflow:
+
+```text
+Define Security Requirement
+        ↓
+Model Threat
+        ↓
+Define Attack Hypothesis
+        ↓
+Define Security Test
+        ↓
+Execute Test
+        ↓
+Observe Simulated Target
+        ↓
+Evaluate Expected vs. Actual
+        ↓
+Generate Evidence
+        ↓
+Identify Security-Relevant Deviation
+        ↓
+Model Corrective Action
+        ↓
+Reuse Test for Retest
+```
+
+The current implementation does not yet provide a generalized finding-management or regression platform.
+
+The intended future extension is:
 
 ```text
 Evidence
@@ -724,86 +1119,125 @@ Fix
 Retest
     ↓
 Regression
+    ↓
+CI/CD
 ```
-
-The project therefore moves from a pure test-execution architecture toward a traceable security-engineering workflow.
-
----
-
-# Safety and Scope
-
-This project is intentionally designed as a controlled simulation.
-
-It does not:
-
-* connect to real vehicles
-* connect to real ECUs
-* send traffic to vehicle networks
-* implement a production CAN stack
-* implement a production UDS stack
-* interact with OEM infrastructure
-* access customer data
-* interact with productive systems
-* perform unauthorized security testing
-
-All security behavior is simulated locally and deterministically.
-
-The vulnerable ECU mode exists exclusively as a controlled test condition for demonstrating security verification and regression concepts.
 
 ---
 
 # Professional Positioning
 
-The repository is intended to demonstrate engineering methodology rather than claim operational experience.
+This repository demonstrates engineering methodology within a controlled simulation environment.
 
 It demonstrates:
 
-* structured security-test design
-* deterministic test execution
-* abstraction of the system under test
+* automotive security-test design
+* security requirement verification
+* threat-oriented test definition
+* deterministic security simulation
+* system-under-test abstraction
 * separation of test logic and implementation
-* evidence-oriented verification
+* structured evidence generation
+* expected-versus-actual evaluation
 * Python test automation
-* reproducible engineering workflows
+* reproducible verification
+* controlled vulnerable-state simulation
+* simulated fix and retest methodology
 * architectural documentation
-* controlled security simulation
 
-It does not represent a real-world penetration-testing engagement.
+It does not represent:
+
+* a real penetration-testing engagement
+* a real ECU assessment
+* a real vehicle assessment
+* a production cybersecurity validation
+* an OEM security assessment
+* professional operational penetration-testing experience
 
 ---
 
 # Next Phase
 
-## Phase 5 — TC-001 Diagnostic Authorization
+## Phase 6 — TC-002 Message Validation
 
-The next phase will introduce the first dedicated security test case based on the project's diagnostic-authorization scenario.
-
-Phase 5 will build on the evidence architecture established in Phase 4.
-
-The expected conceptual workflow will become:
+The next implementation phase will introduce:
 
 ```text
-TC-001 Diagnostic Authorization
-              ↓
-       Security Test Runner
-              ↓
-          ECU Target
-              ↓
-        Simulated ECU
-              ↓
-          Test Result
-              ↓
-           Evidence
+TC-002 — Message Validation
 ```
 
-Phase 5 will not replace the Phase-4 evidence architecture.
+TC-002 will build on the existing security-test architecture and Evidence Framework established in Phases 3 and 4.
 
-It will use the established architecture as the basis for a concrete security test case.
+The Phase-5 TC-001 implementation remains unchanged as the first completed dedicated security test case.
+
+---
+
+# Documentation Map
+
+| Document                                           | Purpose                                                               |
+| -------------------------------------------------- | --------------------------------------------------------------------- |
+| `README.md`                                        | Project overview, architecture, status, scope, and development phases |
+| `PROJECT_STATUS.md`                                | Detailed implementation and verification status                       |
+| `ARCHITECTURE_DECISIONS.md`                        | Recorded architectural decisions and rationale                        |
+| `docs/01_architecture.md`                          | Detailed architecture                                                 |
+| `docs/02_methodology.md`                           | Security-testing methodology                                          |
+| `docs/03_evidence-format.md`                       | Evidence Framework and evidence format                                |
+| `docs/04_end-to-end-assessment-case.md`            | Future end-to-end assessment structure                                |
+| `02_test_cases/TC-001-diagnostic-authorization.md` | Detailed TC-001 specification                                         |
+| `01_threat_model/01_attack_surface.md`             | Modeled attack-surface information                                    |
+
+The README provides the project-level view. Detailed implementation and methodology are maintained in the corresponding documentation files.
+
+---
+
+# Final Scope Statement
+
+The Automotive Security Regression Lab is a controlled, deterministic simulation environment for demonstrating how automotive security requirements can be transformed into reproducible security tests and structured execution evidence.
+
+The current implementation covers:
+
+```text
+ECU Simulation
+        ↓
+Security Test Architecture
+        ↓
+Evidence Framework
+        ↓
+TC-001 Diagnostic Authorization
+        ↓
+Automated Verification
+```
+
+The long-term workflow is:
+
+```text
+Security Requirement
+        ↓
+Threat Model
+        ↓
+Security Test
+        ↓
+Evidence
+        ↓
+Security Finding
+        ↓
+Root Cause
+        ↓
+Fix
+        ↓
+Retest
+        ↓
+Regression
+        ↓
+CI/CD
+```
+
+Each stage is added after the architectural capabilities required by that stage have been implemented and verified.
 
 ---
 
 # Technical References
 
-* Python documentation: [https://docs.python.org/3.14/](https://docs.python.org/3.14/)
-* pytest documentation: [https://docs.pytest.org/en/stable/](https://docs.pytest.org/en/stable/)
-* pytest good integration practices: [https://docs.pytest.org/en/stable/explanation/goodpractices.html](https://docs.pytest.org/en/stable/explanation/goodpractices.html)
+* [Python Documentation](https://docs.python.org/3.14/)
+* [pytest Documentation](https://docs.pytest.org/en/stable/)
+* [pytest Good Integration Practices](https://docs.pytest.org/en/stable/explanation/goodpractices.html)

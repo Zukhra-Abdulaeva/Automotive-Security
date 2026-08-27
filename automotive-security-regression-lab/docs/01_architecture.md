@@ -2,25 +2,40 @@
 
 ## Purpose
 
-The Automotive Security Regression Lab uses a fully simulated and deterministic
-architecture for reproducible automotive security testing.
+The Automotive Security Regression Lab uses a deterministic software
+architecture for developing and executing automotive security tests against a
+simulated ECU.
 
-Phase 3 introduced a dedicated security test execution architecture that
-separates security test logic from the simulated ECU implementation.
+The architecture was introduced in Phase 3 and extended in Phase 4 with the
+Evidence Framework. Phase 5 adds the first dedicated security test case,
+TC-001 — Diagnostic Authorization.
 
-Phase 4 adds a dedicated Evidence Framework that records the result of a test
-execution without coupling evidence generation to the ECU.
+The architecture separates the following responsibilities:
 
-The architecture remains intentionally limited to a controlled simulation.
-It does not implement a real CAN or UDS stack and performs no network
-communication.
+- security-test definition
+- test execution
+- target interaction
+- simulated ECU behavior
+- test-result evaluation
+- evidence generation
+
+The separation is intentional. The security test defines the expected
+security behavior, the simulated ECU provides the system-under-test behavior,
+the Test Runner evaluates the execution result, and the Evidence Framework
+records the resulting observation.
+
+The project remains fully simulated and deterministic. It does not communicate
+with real vehicles, real ECUs, CAN networks, UDS endpoints, OEM systems, or
+production systems.
+
+---
 
 ## System Context
 
-The project models an automotive security testing concept in a controlled
-Python environment.
+The project models the basic relationship between a security tester and an
+automotive system in a controlled Python environment.
 
-The conceptual real-world relationship is:
+A simplified real-world concept can be represented as:
 
 ```text
 Security Tester
@@ -29,19 +44,22 @@ Security Tester
 Diagnostic Interface
        |
        v
-Gateway / Communication Layer
+Communication Layer
        |
        v
 ECU
-```
+````
 
-The current project abstracts this concept as:
+The project does not implement this real-world communication stack.
+
+Instead, the current implementation represents the testing workflow through
+the following local architecture:
 
 ```text
 Security Test Case
        |
        v
-Test Runner
+Security Test Runner
        |
        v
 ECU Adapter
@@ -50,174 +68,341 @@ ECU Adapter
 Simulated ECU
        |
        v
-Response
+ECU Response
+       |
+       v
+Test Result
        |
        v
 Evidence
 ```
 
-The ECU simulator is the system under test.
+The `ECUSimulator` is the system under test.
 
-No real vehicle, ECU, OEM system, customer data, production credential,
-or production network is used.
+The security-test infrastructure communicates with the simulated target
+through the defined target interface. It does not directly manipulate the
+internal implementation of the ECU simulator.
 
-## Test Architecture
+---
 
-The current architecture consists of five logical responsibilities:
+## Architectural Components
+
+The current architecture consists of the following logical components:
 
 ```text
-+--------------------------+
-| Security Test / Test Case|
-+------------+-------------+
-             |
-             v
-+--------------------------+
-|       Test Runner        |
-+------------+-------------+
-             |
-             v
-+--------------------------+
-|       ECU Adapter        |
-+------------+-------------+
-             |
-             v
-+--------------------------+
-|      ECU Simulator       |
-+------------+-------------+
-             |
-             v
-+--------------------------+
-|         Response         |
-+------------+-------------+
-             |
-             v
-+--------------------------+
-|      Evidence Model      |
-+--------------------------+
++---------------------------+
+|    Security Test Case     |
++-------------+-------------+
+              |
+              v
++---------------------------+
+|     SecurityTestRunner    |
++-------------+-------------+
+              |
+              v
++---------------------------+
+|        ECUTarget          |
++-------------+-------------+
+              |
+              v
++---------------------------+
+|        ECUAdapter         |
++-------------+-------------+
+              |
+              v
++---------------------------+
+|       ECUSimulator        |
++-------------+-------------+
+              |
+              v
++---------------------------+
+|        ECUResponse        |
++-------------+-------------+
+              |
+              v
++---------------------------+
+|        TestResult         |
++-------------+-------------+
+              |
+              v
++---------------------------+
+|    Evidence Framework     |
++---------------------------+
 ```
 
-The architecture separates:
+Each component has a defined responsibility.
 
-* security test definition
-* test execution
-* target interaction
-* simulated ECU behavior
-* execution evidence
+The architecture deliberately prevents security-test logic, ECU security
+behavior, and evidence generation from being combined into a single
+component.
+
+---
 
 ## SecurityTestCase
 
-`SecurityTestCase` provides a minimal representation of a security test.
+`SecurityTestCase` represents the definition of a security test.
 
-It currently contains:
+The current implementation contains:
 
 * `test_id`
 * `description`
 * `request`
 * `expected_status`
 
-The abstraction provides the technical basis for later concrete security test
-cases without implementing the complete test-case documentation defined for
-future project phases.
+The test case defines the request that is sent to the target and the response
+status that is expected for the defined security scenario.
 
-## Test Runner
+For TC-001, the test case represents the protected diagnostic operation and
+the expected authorization behavior.
 
-`SecurityTestRunner` coordinates the execution of a security test case.
+The test case does not implement the ECU security policy.
 
-Its responsibility is limited to:
+The expected result is therefore defined independently from the concrete
+implementation of the simulated ECU.
 
-1. accepting a test case
-2. sending the request through the target interface
-3. receiving the ECU response
-4. comparing the actual response status with the expected status
-5. returning a structured `TestResult`
+---
 
-The runner does not access internal ECU state.
+## SecurityTestRunner
 
-Evidence generation is intentionally implemented as a separate layer. The
-Evidence Framework consumes the completed test case and test result rather than
-implementing test execution itself.
+`SecurityTestRunner` controls the execution of a security test.
 
-The runner does not implement:
+Its responsibilities are:
 
-* finding management
-* CI/CD
-* regression orchestration
-* ECU security policy
+1. accept a `SecurityTestCase`
+2. send the request through the target interface
+3. receive the ECU response
+4. compare the actual response status with the expected status
+5. create a structured `TestResult`
 
-## ECU Adapter
-
-`ECUAdapter` separates the test runner from the concrete ECU simulator.
-
-The adapter exposes the target interaction through the `ECUTarget` protocol:
+The execution flow is:
 
 ```text
-Test Runner
-     |
-     v
-ECUTarget
-     |
-     v
-ECUAdapter
-     |
-     v
-ECUSimulator
+SecurityTestCase
+       |
+       v
+SecurityTestRunner
+       |
+       v
+Target
+       |
+       v
+ECU Response
+       |
+       v
+Expected vs Actual
+       |
+       v
+TestResult
 ```
 
-The adapter is responsible only for forwarding requests to the configured
-target and returning its structured response.
+The Test Runner does not access internal ECU state.
 
-The adapter does not contain security-test logic.
+It does not implement:
 
-It does not:
+* ECU security policy
+* authorization decisions
+* security finding management
+* evidence storage
+* regression orchestration
+* CI/CD
 
+The Test Runner is responsible for executing and evaluating the security
+test, not for implementing the security behavior being tested.
+
+---
+
+## ECUTarget
+
+`ECUTarget` defines the target interface used by the security-test runner.
+
+The abstraction separates the test infrastructure from the concrete target
+implementation.
+
+The current relationship is:
+
+```text
+SecurityTestRunner
+        |
+        v
+    ECUTarget
+        |
+        v
+    ECUAdapter
+        |
+        v
+   ECUSimulator
+```
+
+The target interface defines how the test infrastructure interacts with the
+system under test.
+
+The current implementation uses the simulated ECU behind this interface.
+
+No real vehicle communication protocol is implemented through `ECUTarget`.
+
+---
+
+## ECUAdapter
+
+`ECUAdapter` connects the abstract `ECUTarget` interface to the concrete
+`ECUSimulator`.
+
+Its responsibility is to forward requests to the configured target and return
+the resulting response.
+
+The adapter does not:
+
+* define security requirements
+* implement security-test logic
+* make authorization decisions
 * evaluate security findings
 * generate evidence
-* manage test results
-* implement security policy decisions
+* modify test results
 
-This keeps the target abstraction independent from the test execution logic.
+The adapter therefore provides the boundary between the generic test
+execution layer and the concrete simulated target.
 
-## ECU Simulator
+This separation allows the test infrastructure to remain independent from
+the concrete ECU simulator implementation.
 
-`ECUSimulator` represents the simulated ECU and remains responsible for the
-security behavior implemented in Phase 2.
+---
 
-It is responsible for:
+## ECUSimulator
+
+`ECUSimulator` represents the simulated ECU and is the system under test.
+
+The simulator was introduced in Phase 2 and provides the target behavior used
+by the security-test architecture.
+
+Its responsibilities include:
 
 * maintaining the configured security mode
 * maintaining the authorization state
 * validating incoming requests
-* processing the protected operation
-* applying the configured security policy
-* returning deterministic responses
+* processing the requested operation
+* applying the configured security behavior
+* returning a deterministic `ECUResponse`
 
-The simulator supports:
+The simulator supports two security modes:
 
-* `secure`
-* `vulnerable`
+```text
+secure
+vulnerable
+```
 
-The simulator remains independent from the test runner, adapter, and evidence
-layers.
+### Secure Mode
 
-The ECU simulator does not generate or store test evidence.
+Secure mode enforces authorization before granting the protected operation.
+
+```text
+authorization = false
+PROTECTED_OPERATION
+       |
+       v
+ACCESS_DENIED
+```
+
+and:
+
+```text
+authorization = true
+PROTECTED_OPERATION
+       |
+       v
+ACCESS_GRANTED
+```
+
+### Vulnerable Mode
+
+Vulnerable mode intentionally reproduces the authorization deviation used by
+the security tests:
+
+```text
+authorization = false
+PROTECTED_OPERATION
+       |
+       v
+ACCESS_GRANTED
+```
+
+The vulnerable behavior is a controlled simulation condition. It does not
+represent a real ECU vulnerability or a claim about a production automotive
+system.
+
+The simulator remains independent from the Test Runner and Evidence
+Framework.
+
+It does not generate, store, or evaluate test evidence.
+
+---
+
+## ECUResponse
+
+The simulator returns an `ECUResponse`.
+
+The current response model contains:
+
+* `status`
+* `operation`
+
+The supported response statuses are:
+
+```text
+ACCESS_GRANTED
+ACCESS_DENIED
+INVALID_REQUEST
+```
+
+The response represents the behavior observed by the security-test
+infrastructure.
+
+For a given security mode, authorization state, and request, the simulator
+produces a deterministic response.
+
+The response can be converted into a dictionary representation using
+`to_dict()`.
+
+---
+
+## TestResult
+
+`TestResult` represents the evaluated outcome of a security-test execution.
+
+The result is created by comparing the expected status defined by the
+security test with the actual status returned by the target.
+
+Conceptually:
+
+```text
+Expected Status
+       |
+       +
+       |
+Actual Status
+       |
+       v
+Comparison
+       |
+       v
+TestResult
+```
+
+The `TestResult` therefore forms the boundary between test execution and
+evidence generation.
+
+The ECU simulator does not determine the final test result.
+
+It only returns the response representing the behavior of the system under
+test.
+
+---
 
 ## Evidence Framework
 
-The Evidence Framework represents one completed security test execution as
-structured evidence.
+The Evidence Framework records the result of a completed security-test
+execution in a structured format.
 
-Its responsibility is to document:
-
-* which test was executed
-* which target was tested
-* which preconditions existed
-* which input was used
-* what behavior was expected
-* what behavior was observed
-* whether the observation matched the expectation
-* additional notes
-
-The minimum evidence model contains:
+The current Evidence model contains:
 
 * `test_id`
 * `timestamp`
@@ -229,14 +414,82 @@ The minimum evidence model contains:
 * `result`
 * `notes`
 
-The Evidence Framework can serialize the evidence model to JSON.
+The Evidence Framework operates after test execution:
 
-The evidence layer does not implement ECU security behavior and does not
-modify the ECU simulator.
+```text
+Security Test
+       |
+       v
+Test Result
+       |
+       v
+Evidence
+```
 
-## Evidence Flow
+The Evidence Framework does not implement security behavior.
 
-A complete Phase 4 execution flow is:
+It does not change the ECU response, modify the expected result, or determine
+the security policy of the system under test.
+
+Evidence represents the observation produced by a test execution.
+
+---
+
+## Evidence Result Semantics
+
+The Evidence Framework currently supports two result values:
+
+```text
+PASS
+FAIL
+```
+
+The semantics are:
+
+```text
+PASS
+Expected == Actual
+```
+
+and:
+
+```text
+FAIL
+Expected != Actual
+```
+
+For example, if the security requirement requires:
+
+```text
+Expected = ACCESS_DENIED
+```
+
+but the controlled vulnerable ECU returns:
+
+```text
+Actual = ACCESS_GRANTED
+```
+
+the resulting evidence represents:
+
+```text
+FAIL
+```
+
+The `FAIL` indicates that the observed behavior did not match the expected
+security behavior.
+
+It does not automatically constitute a formal security vulnerability
+finding.
+
+Formal finding assessment, severity classification, root-cause management,
+and remediation tracking belong to later project phases.
+
+---
+
+## Complete Test Execution Flow
+
+The current execution flow is:
 
 ```text
 SecurityTestCase
@@ -247,12 +500,19 @@ SecurityTestRunner
        |
        | handle_request()
        v
+ECUTarget
+       |
+       v
 ECUAdapter
        |
+       | handle_request()
        v
 ECUSimulator
        |
        | ECUResponse
+       v
+ECUAdapter
+       |
        v
 SecurityTestRunner
        |
@@ -270,13 +530,75 @@ Evidence
 JSON
 ```
 
-The Evidence Framework therefore sits after test execution.
+The execution path separates target behavior from test evaluation and evidence
+generation.
 
-This keeps the System Under Test independent from evidence generation.
+This means that the ECU simulator remains unaware of the Evidence Framework.
+
+---
+
+## TC-001 in the Current Architecture
+
+Phase 5 introduces:
+
+```text
+TC-001 — Diagnostic Authorization
+```
+
+TC-001 verifies the security requirement:
+
+```text
+Protected diagnostic operations shall require authorization.
+```
+
+The protected operation is:
+
+```text
+PROTECTED_OPERATION
+```
+
+The secure behavior is:
+
+```text
+authorization = false
+PROTECTED_OPERATION
+       |
+       v
+ACCESS_DENIED
+```
+
+and:
+
+```text
+authorization = true
+PROTECTED_OPERATION
+       |
+       v
+ACCESS_GRANTED
+```
+
+The controlled vulnerable behavior is:
+
+```text
+authorization = false
+PROTECTED_OPERATION
+       |
+       v
+ACCESS_GRANTED
+```
+
+The security test evaluates these responses through the existing test
+architecture.
+
+The test does not access the internal authorization implementation of the
+simulated ECU.
+
+---
 
 ## Request and Response Flow
 
-A security test execution follows this flow:
+A request moves through the target boundary before reaching the simulated
+ECU.
 
 ```text
 SecurityTestCase
@@ -285,11 +607,12 @@ SecurityTestCase
        v
 SecurityTestRunner
        |
-       | handle_request()
+       v
+ECUTarget
+       |
        v
 ECUAdapter
        |
-       | handle_request()
        v
 ECUSimulator
        |
@@ -300,124 +623,41 @@ ECUAdapter
        v
 SecurityTestRunner
        |
-       | compare expected/actual status
+       | compare expected / actual
        v
 TestResult
 ```
 
-Evidence generation then consumes the completed execution result:
+The Test Runner therefore interacts with the target through the defined
+interface instead of directly calling ECU implementation details.
 
-```text
-TestResult
-       |
-       v
-EvidenceGenerator
-       |
-       v
-Evidence
-```
-
-## Response Model
-
-The simulator returns an `ECUResponse`.
-
-The response contains:
-
-* `status`
-* `operation`
-
-The available response statuses are:
-
-```text
-ACCESS_GRANTED
-ACCESS_DENIED
-INVALID_REQUEST
-```
-
-The response model is deterministic and can be converted into a dictionary
-representation using `to_dict()`.
-
-## Security Behavior
-
-### Secure Mode
-
-An unauthorized protected operation results in:
-
-```text
-PROTECTED_OPERATION
-       |
-       v
-ACCESS_DENIED
-```
-
-An authorized protected operation results in:
-
-```text
-PROTECTED_OPERATION
-       |
-       v
-ACCESS_GRANTED
-```
-
-### Vulnerable Mode
-
-In vulnerable mode, the protected operation is intentionally granted without
-authorization:
-
-```text
-PROTECTED_OPERATION
-       |
-       v
-ACCESS_GRANTED
-```
-
-This behavior provides a controlled vulnerable state for security testing.
+---
 
 ## Invalid Requests
 
-Unknown operations are rejected by the simulator:
+The simulated ECU validates incoming requests.
+
+An unsupported operation results in:
 
 ```text
-Unknown operation
+Unknown Operation
        |
        v
 INVALID_REQUEST
 ```
 
-Invalid request handling remains the responsibility of the ECU simulator.
+Invalid request handling is part of the ECU simulator.
 
-The test runner only evaluates the response returned by the target.
+The Test Runner does not implement request validation. It evaluates the
+response returned by the target.
 
-## Evidence Result Semantics
+This keeps target behavior and test evaluation separate.
 
-The Evidence Framework supports two execution results:
-
-```text
-PASS
-FAIL
-```
-
-`PASS` means:
-
-```text
-expected == actual
-```
-
-`FAIL` means:
-
-```text
-expected != actual
-```
-
-A `FAIL` result documents a mismatch between expected and observed behavior.
-
-It does not automatically constitute a security vulnerability finding.
-
-Finding assessment belongs to a later project phase.
+---
 
 ## Determinism
 
-The ECU simulation is deterministic.
+Deterministic behavior is a core requirement of the current architecture.
 
 For the same:
 
@@ -427,42 +667,52 @@ For the same:
 
 the simulator produces the same response.
 
-Evidence generation does not require:
+This allows security tests to be repeated under equivalent conditions and
+makes test results reproducible.
 
-* network access
+The current architecture does not depend on:
+
 * physical hardware
-* a real ECU
+* vehicle networks
 * external services
+* network access
 * random test data
 
-The timestamp is generated at runtime and is intentionally time-dependent.
+The Evidence Framework generates a runtime timestamp. The timestamp is
+therefore expected to differ between executions.
 
-All other evidence content is derived from the test execution context.
+The remaining evidence fields are derived from the test execution and target
+state.
+
+---
 
 ## Architectural Separation
 
-The key architectural principle is:
+The central architectural separation is:
 
 ```text
-Security Test Logic
-        |
-        v
-    Test Runner
-        |
-        v
-    ECU Adapter
-        |
-        v
-   Security Target
-        |
-        v
-    Test Result
-        |
-        v
-     Evidence
+Security Test Definition
+          |
+          v
+    Test Execution
+          |
+          v
+    Target Boundary
+          |
+          v
+    System Under Test
+          |
+          v
+      Test Result
+          |
+          v
+       Evidence
 ```
 
-The security test does not depend on internal simulator attributes such as:
+The security test does not depend on internal simulator attributes.
+
+For example, the test infrastructure does not directly manipulate internal
+state such as:
 
 ```text
 _internal_state
@@ -470,129 +720,290 @@ _authorized
 _security_policy
 ```
 
-Instead, communication occurs through the defined target interface.
+Communication with the target occurs through the defined target interface.
 
-The Evidence Framework does not access these internal simulator attributes.
+The Evidence Framework also does not access internal ECU state.
 
-This improves:
+This separation provides clear boundaries between:
 
-* testability
-* maintainability
-* target abstraction
-* reproducibility
-* separation of responsibilities
+* what is being tested
+* how the test is executed
+* how the target behaves
+* how the result is evaluated
+* how the observation is recorded
+
+---
 
 ## Simulation Boundary
 
-The current implementation is fully simulated.
+The current implementation is completely local and simulated.
 
 It does not provide:
 
 * real CAN communication
 * real UDS communication
 * physical ECU access
-* vehicle network access
+* vehicle-network communication
 * production-system testing
+* OEM-system integration
 * real penetration testing
 
-The adapter architecture provides an abstraction boundary at the target
-interface, but no real-world communication adapter is currently implemented.
+The `ECUTarget` abstraction provides a software boundary for target
+interaction, but no real-world communication adapter is currently implemented.
 
-## Future Extension
+The project therefore demonstrates the testing architecture and workflow
+without introducing external automotive communication.
 
-A future implementation could theoretically replace the simulated target
-behind the adapter boundary with another compatible test target.
+---
+
+## Future Target Extension
+
+The target abstraction provides an extension point for future compatible test
+targets.
 
 Conceptually:
 
 ```text
-                 +------------------+
-                 |                  |
-                 v                  v
-            ECU Simulator     Future Target
-                 |                  |
-                 +--------+---------+
-                          |
-                          v
-                      ECUTarget
-                          ^
-                          |
-                     Test Runner
-                          |
-                          v
-                  Evidence Framework
+                       +------------------+
+                       |                  |
+                       v                  v
+                 ECUSimulator       Future Target
+                       |                  |
+                       +--------+---------+
+                                |
+                                v
+                            ECUTarget
+                                ^
+                                |
+                         SecurityTestRunner
+                                |
+                                v
+                        Evidence Framework
 ```
 
-This is a possible future extension only.
+This diagram represents an architectural possibility, not a current
+implementation.
 
-No real ECU or communication adapter is implemented.
+The repository currently uses the simulated ECU only.
 
-## Phase 4 Scope
+No real ECU adapter, CAN adapter, or UDS adapter is implemented.
 
-Implemented in Phase 4:
+Any future target would need to satisfy the defined target interaction
+contract without requiring changes to the fundamental security-test execution
+model.
 
-* structured evidence model
+---
+
+## Phase History
+
+### Phase 1 — Repository Foundation
+
+Phase 1 established the project and development foundation.
+
+It introduced:
+
+* Python project configuration
+* pytest-based verification
+* repository structure
+* documentation structure
+* project scope
+* initial architectural decisions
+* deterministic local development environment
+
+### Phase 2 — ECU Simulation
+
+Phase 2 implemented the deterministic simulated ECU.
+
+It introduced:
+
+* secure mode
+* vulnerable mode
+* authorization state
+* protected operation handling
+* request validation
+* deterministic response statuses
+* structured ECU responses
+
+### Phase 3 — Security Test Architecture
+
+Phase 3 separated security-test execution from the simulated ECU.
+
+It introduced:
+
+* `SecurityTestCase`
+* `SecurityTestRunner`
+* `TestResult`
+* `ECUTarget`
+* `ECUAdapter`
+
+The resulting architecture established the target boundary used by later
+security tests.
+
+### Phase 4 — Evidence Framework
+
+Phase 4 introduced structured evidence generation.
+
+It added:
+
+* the Evidence model
 * mandatory evidence fields
 * evidence validation
 * `PASS` / `FAIL` semantics
-* runtime timestamp
+* runtime timestamps
 * JSON serialization
-* integration with the existing Phase 3 test result
-* separation of evidence generation from the ECU
-* deterministic local tests
+* evidence generation from `TestResult`
 
-Not implemented in Phase 4:
+The Evidence Framework was deliberately kept separate from the ECU and Test
+Runner.
 
-* security finding management
+### Phase 5 — TC-001 Diagnostic Authorization
+
+Phase 5 introduced the first dedicated security test case:
+
+```text
+TC-001 — Diagnostic Authorization
+```
+
+TC-001 reuses the existing Phase-3 test architecture and Phase-4 Evidence
+Framework.
+
+No new communication layer was required.
+
+The test evaluates the authorization behavior of the simulated ECU and
+provides the basis for the subsequent finding, fix, retest, and regression
+workflow planned for later phases.
+
+---
+
+## Current Architectural Scope
+
+The current implementation provides:
+
+* deterministic ECU simulation
+* secure and vulnerable security modes
+* authorization handling
+* protected operation handling
+* request validation
+* target abstraction
+* security-test execution
+* expected-versus-actual evaluation
+* structured test results
+* structured evidence
+* evidence validation
+* JSON serialization
+* TC-001 Diagnostic Authorization
+
+The following capabilities are outside the current implementation:
+
+* real CAN communication
+* real UDS communication
+* physical ECU communication
+* vehicle-network communication
+* production-system testing
+* OEM-system integration
+* formal vulnerability management
 * severity management
 * CVSS calculation
-* root-cause management
-* fix tracking
-* retest workflow
-* complete security regression suite
-* CI/CD pipeline
-* real ECU communication
-* real vehicle communication
+* generalized security-finding management
+* complete regression orchestration
+* CI/CD integration
 
-## Security Finding Boundary
+These capabilities are reserved for later project phases.
 
-Evidence is not a vulnerability finding.
+---
 
-Evidence answers:
+## Architectural Principles
+
+The current architecture follows several principles.
+
+### 1. Separate the Test from the System Under Test
+
+The security test must not depend directly on the internal implementation of
+the ECU simulator.
+
+The target abstraction provides the boundary between test execution and the
+system under test.
+
+### 2. Keep Security Behavior in the Target
+
+The simulated ECU is responsible for its security behavior.
+
+The Test Runner must evaluate that behavior rather than implement or replace
+it.
+
+### 3. Separate Execution from Evidence
+
+The Test Runner produces a `TestResult`.
+
+The Evidence Framework consumes the completed result and records the
+observation.
+
+Evidence generation therefore does not control test execution.
+
+### 4. Keep Expected Security Behavior Independent from the Implementation
+
+The expected result is derived from the security requirement represented by
+the test case.
+
+The expected result must not be changed simply to make an insecure
+implementation pass.
+
+### 5. Keep the Simulation Deterministic
+
+Equivalent input and target state must produce equivalent target behavior.
+
+This is required for reproducible local security testing.
+
+### 6. Add Future Workflow Stages Only When Their Prerequisites Exist
+
+The project is developed incrementally:
 
 ```text
-What was tested?
-What was expected?
-What actually happened?
-What was the test result?
+ECU Simulation
+       |
+       v
+Security Test Architecture
+       |
+       v
+Evidence Framework
+       |
+       v
+TC-001
+       |
+       v
+Future Security Finding
+       |
+       v
+Future Retest
+       |
+       v
+Future Regression
+       |
+       v
+Future CI/CD
 ```
 
-A later finding process may answer:
+Later workflow stages are not implemented inside earlier architectural layers
+just to anticipate future functionality.
 
-```text
-Is this a security issue?
-Why?
-What is the impact?
-What is the root cause?
-How should it be fixed?
-```
+---
 
-These responsibilities remain intentionally separated.
+## Architecture and Project Scope
 
-## Architectural Principle
+The architecture is intentionally smaller than a real automotive cybersecurity
+test environment.
 
-The central Phase 4 principle is:
+The purpose of the project is to demonstrate how a security requirement can be
+translated into a reproducible security test and how the resulting execution
+can be evaluated and recorded as structured evidence.
 
-**Keep evidence structured and separate from the system under test.**
+The project does not attempt to reproduce a complete automotive
+communication stack, production ECU, or real vehicle environment.
 
-The ECU is the simulated target.
+The current architecture therefore provides the minimum separation required
+for the demonstrated workflow while keeping the implementation deterministic,
+local, and understandable.
 
-The Test Runner is the test mechanism.
-
-The Adapter connects the test mechanism to the target.
-
-The Evidence Framework documents the resulting test observation.
-
-This separation provides the architectural foundation for later finding,
-retest, regression, and CI/CD capabilities without implementing those future
-phases prematurely.
+The long-term architecture can build additional security workflow stages on
+top of these stable boundaries without changing the basic responsibilities of
+the existing components.
