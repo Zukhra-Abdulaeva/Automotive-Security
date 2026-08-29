@@ -1,8 +1,3 @@
-Ja. Ich würde die README **nicht künstlich „unprofessioneller“ machen**, sondern die KI-Merkmale durch eine bessere technische Dokumentationsstruktur entfernen: weniger Wiederholung, weniger Meta-Erklärungen, konkrete Implementierungsbezüge, klare Trennung zwischen **implementiert**, **modelliert** und **zukünftig**.
-
-Hier ist eine überarbeitete Fassung. Sie ist bewusst **technischer, präziser und natürlicher** formuliert und behält die fachliche Informationsqualität von Phase 5 bei.
-
-````markdown
 # Automotive Security Regression Lab
 
 **From Security Finding to Reproducible Automotive Security Tests**
