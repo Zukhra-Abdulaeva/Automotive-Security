@@ -48,13 +48,13 @@ def test_arch_003_invalid_operation():
         test_id="TC-ARCH-003",
         description="Invalid operation",
         request={"operation": "UNKNOWN_OPERATION"},
-        expected_status=ResponseStatus.INVALID_REQUEST,
+        expected_status=ResponseStatus.UNSUPPORTED_OPERATION,
     )
 
     result = runner.run(case)
 
     assert result.passed
-    assert result.actual_status is ResponseStatus.INVALID_REQUEST
+    assert result.actual_status is ResponseStatus.UNSUPPORTED_OPERATION
 
 def test_arch_004_vulnerable_unauthorized_protected_operation():
     target = ECUAdapter(ECUSimulator(mode="vulnerable"))

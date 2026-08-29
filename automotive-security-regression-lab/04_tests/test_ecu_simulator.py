@@ -37,7 +37,7 @@ def test_unknown_operation():
         {"operation": "UNKNOWN_OPERATION"}
     )
 
-    assert response.status.value == "INVALID_REQUEST"
+    assert response.status.value == "UNSUPPORTED_OPERATION"
 
 def test_invalid_input():
     ecu = ECUSimulator()

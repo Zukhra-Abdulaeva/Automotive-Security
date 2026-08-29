@@ -6,9 +6,8 @@ The Automotive Security Regression Lab uses a deterministic software
 architecture for developing and executing automotive security tests against a
 simulated ECU.
 
-The architecture was introduced in Phase 3 and extended in Phase 4 with the
-Evidence Framework. Phase 5 adds the first dedicated security test case,
-TC-001 — Diagnostic Authorization.
+The architecture was introduced in Phase 3 and extended in Phase 4 with the Evidence Framework. 
+Phase 5 adds TC-001 — Diagnostic Authorization, and Phase 6 adds TC-002 — Message Validation.
 
 The architecture separates the following responsibilities:
 
@@ -595,6 +594,60 @@ simulated ECU.
 
 ---
 
+## TC-002 in the Current Architecture
+
+Phase 6 introduces:
+
+```text
+TC-002 — Message Validation
+```
+
+TC-002 extends the existing security-test architecture without introducing a 
+new communication layer.
+
+The test uses the same architectural path:
+
+TC-002
+   |
+   v
+SecurityTestCase
+   |
+   v
+SecurityTestRunner
+   |
+   v
+ECUTarget
+   |
+   v
+ECUAdapter
+   |
+   v
+ECUSimulator
+   |
+   v
+ECUResponse
+   |
+   v
+TestResult
+   |
+   v
+Evidence
+
+TC-002 verifies message/request validation behavior through the existing 
+target abstraction.
+
+The security test does not access internal ECU implementation details.
+
+The expected behavior remains defined by the security-test specification 
+and is evaluated independently from the concrete ECU implementation.
+
+TC-002 therefore reuses the architectural separation established in 
+Phases 3, 4, and 5.
+
+No new communication layer is introduced by TC-002.
+
+---
+
 ## Request and Response Flow
 
 A request moves through the target boundary before reaching the simulated
@@ -873,6 +926,20 @@ The test evaluates the authorization behavior of the simulated ECU and
 provides the basis for the subsequent finding, fix, retest, and regression
 workflow planned for later phases.
 
+### Phase 6 introduced the second dedicated security test case:
+
+```text
+TC-002 — Message Validation
+```
+
+TC-002 reuses the existing security-test architecture and Evidence Framework.
+
+The test validates message/request handling through the existing target abstraction 
+and does not introduce real automotive communication.
+
+Phase 6 therefore extends the security-test coverage without changing the fundamental 
+architectural boundaries established in earlier phases.
+
 ---
 
 ## Current Architectural Scope
@@ -892,6 +959,7 @@ The current implementation provides:
 * evidence validation
 * JSON serialization
 * TC-001 Diagnostic Authorization
+* TC-002 Message Validation
 
 The following capabilities are outside the current implementation:
 
@@ -969,6 +1037,9 @@ Evidence Framework
        |
        v
 TC-001
+       |
+       v
+TC-002
        |
        v
 Future Security Finding

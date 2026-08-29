@@ -272,7 +272,215 @@ Not implemented in Phase 4:
 * real ECU communication
 * real vehicle communication
 
-## Security Finding Boundary
+Phase 5 — TC-001 Evidence Integration
+Phase 5 introduced the first dedicated security test:
+
+```text
+TC-001 — Diagnostic Authorization
+```
+
+The existing Evidence Framework was reused to record TC-001 executions.
+
+TC-001 evidence represents the relationship between:
+
+```text
+Security Requirement
+↓
+Security Test
+↓
+Test Execution
+↓
+Expected vs Actual
+↓
+TestResult
+↓
+Evidence
+```
+
+For the unauthorized TC-001 scenario, the expected secure behavior is:
+
+```text
+ACCESS_DENIED
+```
+
+A controlled vulnerable execution may produce:
+
+```text
+Actual = ACCESS_GRANTED
+```
+
+which results in:
+
+```text
+result = FAIL
+```
+
+The Evidence Framework does not determine whether the observed deviation
+constitutes a formal security finding.
+
+Phase 5 therefore extended the practical use of the Evidence Framework
+without changing its fundamental model or architectural boundary.
+
+No separate evidence architecture was introduced for TC-001.
+
+---
+
+## Phase 6 — TC-002 Evidence Integration
+
+Phase 6 introduced the second dedicated security test:
+
+```text
+TC-002 — Message Validation
+```
+
+The existing Evidence Framework is reused for TC-002 executions.
+
+TC-002 verifies that invalid request structures or unsupported operations are
+rejected before security-relevant operation processing.
+
+The expected response for an invalid request is:
+
+```text
+INVALID_REQUEST
+```
+
+A conforming execution therefore produces:
+
+```text
+Expected = INVALID_REQUEST
+Actual   = INVALID_REQUEST
+Result   = PASS
+```
+
+If the target returns a different response, the evidence records:
+
+```text
+Expected = INVALID_REQUEST
+Actual   != INVALID_REQUEST
+Result   = FAIL
+```
+
+The `FAIL` represents an observed deviation from the message-validation
+requirement. It does not automatically constitute a formal security finding.
+
+TC-002 uses the same evidence model and serialization mechanism established
+in Phase 4.
+
+No separate evidence format is introduced for TC-002.
+
+---
+
+## Current Evidence Framework Scope
+
+Following completion of Phase 6, the Evidence Framework supports evidence
+generation for the currently implemented security tests:
+
+```text
+TC-001 — Diagnostic Authorization
+TC-002 — Message Validation
+```
+
+Both tests use the same evidence structure:
+
+```text
+test_id
+timestamp
+target
+preconditions
+input
+expected
+actual
+result
+notes
+```
+
+The evidence workflow is:
+
+```text
+Security Test
+↓
+Test Execution
+↓
+TestResult
+↓
+Evidence Generator
+↓
+Evidence Model
+↓
+JSON
+```
+
+The Evidence Framework therefore provides a common evidence representation
+across the implemented security-test set.
+
+The framework does not require a different evidence schema for each test
+case.
+
+Test-specific information is represented through the existing fields such as
+`test_id`, `preconditions`, `input`, `expected`, `actual`, and `notes`.
+
+---
+
+## Current Evidence Examples
+
+### TC-001 — Diagnostic Authorization
+
+A successful unauthorized-access protection test may produce:
+
+```json
+{
+"test_id": "TC-001",
+"timestamp": "2026-08-23T21:52:16.789923Z",
+"target": "simulated-ecu",
+"preconditions": {
+"authorization": false
+},
+"input": {
+"operation": "PROTECTED_OPERATION"
+},
+"expected": "ACCESS_DENIED",
+"actual": "ACCESS_DENIED",
+"result": "PASS",
+"notes": "Unauthorized protected operation was rejected."
+}
+```
+
+A controlled vulnerable execution may instead record:
+
+```text
+expected = ACCESS_DENIED
+actual   = ACCESS_GRANTED
+result   = FAIL
+```
+
+### TC-002 — Message Validation
+
+A conforming invalid-request test may produce:
+
+```json
+{
+"test_id": "TC-002",
+"timestamp": "2026-08-29T12:00:00.000000Z",
+"target": "simulated-ecu",
+"preconditions": {
+"target_interface": "configured"
+},
+"input": {
+"operation": "UNSUPPORTED_OPERATION"
+},
+"expected": "INVALID_REQUEST",
+"actual": "INVALID_REQUEST",
+"result": "PASS",
+"notes": "Unsupported operation was rejected by the simulated ECU."
+}
+```
+
+The timestamp shown in examples is illustrative. Actual evidence timestamps
+are generated at runtime.
+
+---
+
+## Evidence and Security Finding Boundary
 
 Evidence is not a vulnerability finding.
 
@@ -280,19 +488,68 @@ Evidence answers:
 
 ```text
 What was tested?
-What was expected?
-What actually happened?
-What was the test result?
+
+What were the preconditions?
+
+What input was used?
+
+What behavior was expected?
+
+What behavior was observed?
+
+What was the resulting test status?
 ```
 
 A later finding process may answer:
 
 ```text
 Is this a security issue?
+
 Why?
-What is the impact?
+
+What is the security impact?
+
 What is the root cause?
+
 How should it be fixed?
+
+Has the fix been verified?
 ```
 
-These responsibilities remain intentionally separated.
+The distinction remains valid after Phase 6.
+
+The current Evidence Framework records test observations and evaluation
+results. It does not perform formal vulnerability classification, root-cause
+analysis, remediation tracking, retesting, or regression management.
+
+These capabilities belong to later project phases.
+
+---
+
+## Current Implementation Status
+
+Implemented through Phase 6:
+
+* structured evidence model
+* mandatory field validation
+* `PASS` / `FAIL` semantics
+* runtime UTC timestamp
+* JSON serialization
+* integration with `TestResult`
+* deterministic local evidence verification
+* TC-001 evidence generation
+* TC-002 evidence generation
+* common evidence format for the implemented security-test set
+
+Not yet implemented as a generalized evidence/lifecycle capability:
+
+* security finding management
+* severity management
+* CVSS calculation
+* root-cause management
+* remediation tracking
+* generalized retest workflow
+* complete regression orchestration
+* CI/CD pipeline integration
+* real ECU communication
+* real vehicle communication

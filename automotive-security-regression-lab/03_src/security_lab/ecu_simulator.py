@@ -1,7 +1,6 @@
 """Deterministic simulated ECU for the Automotive Security Regression Lab.
 
-
-This module intentionally models only the security properties required by the project. 
+This module intentionally models only the security properties required by the project.
 It does not implement a real CAN or UDS stack, nor does it perform any network communication.
 """
 
@@ -19,6 +18,13 @@ class SecurityMode(str, Enum):
     VULNERABLE = "vulnerable"
 
 
+class ECUState(str, Enum):
+    """Operational state of the simulated ECU."""
+
+    READY = "ready"
+    BLOCKED = "blocked"
+
+
 class Operation(str, Enum):
     """Operations understood by the simulated ECU."""
 
@@ -31,6 +37,12 @@ class ResponseStatus(str, Enum):
     ACCESS_GRANTED = "ACCESS_GRANTED"
     ACCESS_DENIED = "ACCESS_DENIED"
     INVALID_REQUEST = "INVALID_REQUEST"
+    UNSUPPORTED_OPERATION = "UNSUPPORTED_OPERATION"
+    REQUEST_REJECTED = "REQUEST_REJECTED"
+
+
+MIN_PARAMETER_VALUE = 0
+MAX_PARAMETER_VALUE = 255
 
 
 @dataclass(frozen=True)
@@ -51,11 +63,22 @@ class ECUResponse:
 class ECUSimulator:
     """Small deterministic ECU security target used by Phase 2 tests."""
 
-    def __init__(self, mode: SecurityMode | str = SecurityMode.SECURE) -> None:
+    def __init__(
+        self,
+        mode: SecurityMode | str = SecurityMode.SECURE,
+        state: ECUState | str = ECUState.READY,
+    ) -> None:
         try:
             self._mode = SecurityMode(mode)
         except (TypeError, ValueError) as exc:
             raise ValueError("mode must be 'secure' or 'vulnerable'") from exc
+
+        try:
+            self._state = ECUState(state)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "state must be 'ready' or 'blocked'"
+            ) from exc
 
         self._authorized = False
 
@@ -63,6 +86,20 @@ class ECUSimulator:
     def mode(self) -> SecurityMode:
         """Return the configured security mode."""
         return self._mode
+
+    @property
+    def state(self) -> ECUState:
+        """Return the current operational state."""
+        return self._state
+
+    def set_state(self, state: ECUState | str) -> None:
+        """Set the ECU operational state explicitly."""
+        try:
+            self._state = ECUState(state)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "state must be 'ready' or 'blocked'"
+            ) from exc
 
     @property
     def authorized(self) -> bool:
@@ -78,29 +115,71 @@ class ECUSimulator:
     def handle_request(self, request: Any) -> ECUResponse:
         """Validate and process one diagnostic-style request.
 
-        Accepted request shape:
-            {"operation": "PROTECTED_OPERATION"}
+        Request structure:
+            {
+                "operation": "PROTECTED_OPERATION",
+                "parameters": {
+                    "value": 0..255
+                }
+            }
 
-        An optional ``parameters`` mapping is accepted for future-proofing,
-        but no parameters are currently required or interpreted.
+        Parameters are optional for backwards compatibility with TC-001.
         """
+
         if not isinstance(request, Mapping):
             return ECUResponse(ResponseStatus.INVALID_REQUEST, None)
 
         operation = request.get("operation")
+
         if not isinstance(operation, str) or not operation:
             return ECUResponse(ResponseStatus.INVALID_REQUEST, None)
 
         if operation != Operation.PROTECTED_OPERATION.value:
-            return ECUResponse(ResponseStatus.INVALID_REQUEST, operation)
+            return ECUResponse(
+                ResponseStatus.UNSUPPORTED_OPERATION,
+                operation,
+            )
 
-        if "parameters" in request and not isinstance(request["parameters"], Mapping):
-            return ECUResponse(ResponseStatus.INVALID_REQUEST, operation)
+        parameters = request.get("parameters", {})
+
+        if not isinstance(parameters, Mapping):
+            return ECUResponse(
+                ResponseStatus.INVALID_REQUEST,
+                operation,
+            )
+
+        if "value" in parameters:
+            value = parameters["value"]
+
+            if (
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or not MIN_PARAMETER_VALUE <= value <= MAX_PARAMETER_VALUE
+            ):
+                return ECUResponse(
+                    ResponseStatus.REQUEST_REJECTED,
+                    operation,
+                )
+
+        if self._state is ECUState.BLOCKED:
+            return ECUResponse(
+                ResponseStatus.REQUEST_REJECTED,
+                operation,
+            )
 
         if self._mode is SecurityMode.VULNERABLE:
-            return ECUResponse(ResponseStatus.ACCESS_GRANTED, operation)
+            return ECUResponse(
+                ResponseStatus.ACCESS_GRANTED,
+                operation,
+            )
 
         if self._authorized:
-            return ECUResponse(ResponseStatus.ACCESS_GRANTED, operation)
+            return ECUResponse(
+                ResponseStatus.ACCESS_GRANTED,
+                operation,
+            )
 
-        return ECUResponse(ResponseStatus.ACCESS_DENIED, operation)
+        return ECUResponse(
+            ResponseStatus.ACCESS_DENIED,
+            operation,
+        )

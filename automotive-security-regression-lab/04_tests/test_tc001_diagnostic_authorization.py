@@ -1,78 +1,39 @@
-from security_lab.ecu_adapter import ECUAdapter
-from security_lab.ecu_simulator import ECUSimulator, ResponseStatus
-from security_lab.evidence import EvidenceGenerator, EvidenceResult
-from security_lab.test_runner import SecurityTestCase, SecurityTestRunner
+from security_lab.ecu_simulator import ResponseStatus
+from security_lab.evidence import EvidenceResult
+from security_lab.tc_001_diagnostic_authorization import (
+    run_authorized_secure_test,
+    run_unauthorized_secure_test,
+    run_unauthorized_vulnerable_test,
+)
 
 
 def test_tc001_unauthorized_access_secure_ecu():
-    ecu = ECUSimulator(mode="secure")
-    ecu.set_authorized(False)
+    test_case, result, evidence = run_unauthorized_secure_test()
 
-    target = ECUAdapter(ecu)
-    runner = SecurityTestRunner(target)
-
-    case = SecurityTestCase(
-        test_id="TC-001",
-        description="Unauthorized protected diagnostic operation",
-        request={"operation": "PROTECTED_OPERATION"},
-        expected_status=ResponseStatus.ACCESS_DENIED,
-    )
-
-    result = runner.run(case)
-
+    assert test_case.test_id == "TC-001"
     assert result.passed
     assert result.expected_status is ResponseStatus.ACCESS_DENIED
     assert result.actual_status is ResponseStatus.ACCESS_DENIED
+    assert evidence.result is EvidenceResult.PASS
 
 
 def test_tc001_authorized_access_secure_ecu():
-    ecu = ECUSimulator(mode="secure")
-    ecu.set_authorized(True)
+    test_case, result, evidence = run_authorized_secure_test()
 
-    target = ECUAdapter(ecu)
-    runner = SecurityTestRunner(target)
-
-    case = SecurityTestCase(
-        test_id="TC-001",
-        description="Authorized protected diagnostic operation",
-        request={"operation": "PROTECTED_OPERATION"},
-        expected_status=ResponseStatus.ACCESS_GRANTED,
-    )
-
-    result = runner.run(case)
-
+    assert test_case.test_id == "TC-001"
     assert result.passed
     assert result.expected_status is ResponseStatus.ACCESS_GRANTED
     assert result.actual_status is ResponseStatus.ACCESS_GRANTED
+    assert evidence.result is EvidenceResult.PASS
 
 
 def test_tc001_vulnerable_behavior_produces_security_observation():
-    ecu = ECUSimulator(mode="vulnerable")
-    ecu.set_authorized(False)
+    test_case, result, evidence = run_unauthorized_vulnerable_test()
 
-    target = ECUAdapter(ecu)
-    runner = SecurityTestRunner(target)
-
-    case = SecurityTestCase(
-        test_id="TC-001",
-        description="Unauthorized protected diagnostic operation",
-        request={"operation": "PROTECTED_OPERATION"},
-        expected_status=ResponseStatus.ACCESS_DENIED,
-    )
-
-    result = runner.run(case)
-
+    assert test_case.test_id == "TC-001"
     assert result.expected_status is ResponseStatus.ACCESS_DENIED
     assert result.actual_status is ResponseStatus.ACCESS_GRANTED
     assert not result.passed
-
-    evidence = EvidenceGenerator().generate(
-        case,
-        result,
-        target="simulated-ecu",
-        preconditions={"authorization": False},
-        notes="Protected operation was accepted without authorization.",
-    )
 
     assert evidence.result is EvidenceResult.FAIL
     assert evidence.expected == "ACCESS_DENIED"
@@ -80,28 +41,7 @@ def test_tc001_vulnerable_behavior_produces_security_observation():
 
 
 def test_tc001_vulnerable_evidence_is_machine_readable():
-    ecu = ECUSimulator(mode="vulnerable")
-    ecu.set_authorized(False)
-
-    target = ECUAdapter(ecu)
-    runner = SecurityTestRunner(target)
-
-    case = SecurityTestCase(
-        test_id="TC-001",
-        description="Unauthorized protected diagnostic operation",
-        request={"operation": "PROTECTED_OPERATION"},
-        expected_status=ResponseStatus.ACCESS_DENIED,
-    )
-
-    result = runner.run(case)
-
-    evidence = EvidenceGenerator().generate(
-        case,
-        result,
-        target="simulated-ecu",
-        preconditions={"authorization": False},
-        notes="Protected operation was accepted without authorization.",
-    )
+    _, _, evidence = run_unauthorized_vulnerable_test()
 
     evidence_dict = evidence.to_dict()
 

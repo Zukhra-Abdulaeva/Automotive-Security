@@ -174,8 +174,13 @@ Requests must provide a valid operation string. Only the defined
 `PROTECTED_OPERATION` is accepted. If optional `parameters` are provided,
 they must be represented as a mapping.
 
-Invalid request structures and unknown operations result in a deterministic
-`INVALID_REQUEST` response.
+Malformed request structures result in `INVALID_REQUEST`.
+
+A syntactically valid but unsupported operation results in
+`UNSUPPORTED_OPERATION`.
+
+Parameter values are validated separately. Values outside the supported
+range result in `REQUEST_REJECTED`.
 
 **Rationale:**
 
@@ -185,6 +190,9 @@ security-policy decisions.
 This keeps the simulator deterministic and prevents malformed requests from
 being interpreted as valid protected operations.
 
+This distinction keeps malformed input, unsupported operations, and rejected
+parameter values semantically separate and provides deterministic response
+behavior for security-test cases.
 ---
 
 # Phase 4 — Evidence Framework
@@ -598,6 +606,67 @@ Negative:
 
 * The complete Evidence-to-CI/CD workflow is not available after Phase 4.
 * Later phases must define the integration behavior explicitly.
+
+---
+
+## ADR-017 — Request validation distinguishes malformed, unsupported, and rejected input
+
+**Status:** Accepted
+
+**Phase:** 6
+
+**Source:** [MASTER] + [INFERENCE]
+
+The simulated ECU uses distinct response statuses for different request
+validation outcomes:
+
+| Condition | Response |
+|---|---|
+| Malformed request structure | `INVALID_REQUEST` |
+| Missing or invalid operation field | `INVALID_REQUEST` |
+| Valid but unsupported operation | `UNSUPPORTED_OPERATION` |
+| Invalid parameter structure | `INVALID_REQUEST` |
+| Parameter value outside `0..255` | `REQUEST_REJECTED` |
+| Boolean parameter value | `REQUEST_REJECTED` |
+
+The supported parameter range is inclusive:
+
+```text
+0 <= value <= 255
+```
+
+Python boolean values are explicitly excluded from the accepted integer
+parameter type.
+
+Rationale:
+
+TC-002 requires deterministic message-validation behavior with distinguishable
+response semantics.
+
+A malformed request is different from a syntactically valid request targeting
+an unsupported operation. Likewise, a structurally valid request containing
+an invalid parameter value is a separate validation outcome.
+
+Keeping these cases distinct makes the simulator behavior easier to test,
+interpret, and document without introducing a real diagnostic protocol stack.
+
+Consequences:
+
+Positive:
+
+Request-validation behavior is deterministic.
+Test cases can distinguish different classes of invalid input.
+Boundary conditions can be verified explicitly.
+The response model remains simple and machine-readable.
+The behavior supports reproducible message-validation testing.
+
+Negative:
+
+Additional response statuses must remain consistent across the simulator
+and test cases.
+Future request-validation rules must preserve the distinction between
+malformed, unsupported, and rejected input unless an explicit architectural
+change is approved.
 
 ---
 

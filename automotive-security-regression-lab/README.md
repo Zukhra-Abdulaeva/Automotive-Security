@@ -69,7 +69,7 @@ The project is developed incrementally. Each phase adds functionality on top of 
 
 # Current Phase
 
-## Phase 5 — TC-001 Diagnostic Authorization
+## Phase 6 — TC-002 Message Validation
 
 **Status: Implemented and locally verified**
 
@@ -690,6 +690,62 @@ Introduced:
 
 ---
 
+## Phase 6 — TC-002 Message Validation
+
+Introduced:
+
+* `TC-002 — Message Validation`
+* deterministic message parameter validation
+* valid boundary values `0` and `255`
+* rejection of values below `0`
+* rejection of values above `255`
+* rejection of boolean values despite Python's `bool`/`int` relationship
+* explicit `UNSUPPORTED_OPERATION` response semantics
+* explicit `REQUEST_REJECTED` response semantics
+* ECU operational states `READY` and `BLOCKED`
+* blocked-state request rejection
+* automated TC-002 verification
+* integration with the existing security-test architecture
+
+TC-002 verifies that a protected operation accepts only valid message parameters and rejects values outside the defined parameter range.
+
+The implemented parameter range is:
+
+```text
+0 <= value <= 255
+```
+
+Boundary behavior:
+
+```text
+-1    → REQUEST_REJECTED
+0     → accepted
+255   → accepted
+256   → REQUEST_REJECTED
+```
+
+Boolean values are rejected explicitly because Python treats bool as a subclass of int.
+
+Unknown operations are classified as:
+
+```text
+UNSUPPORTED_OPERATION
+```
+
+Structurally invalid requests remain classified as:
+
+```text
+INVALID_REQUEST
+```
+
+A request that is structurally valid but violates a defined parameter or ECU-state constraint is classified as:
+
+```text
+REQUEST_REJECTED
+```
+
+---
+
 # Current Architecture
 
 The current architecture combines the verified capabilities of Phases 1–5:
@@ -803,9 +859,8 @@ pytest -q
 Result:
 
 ```text
-............................. [100%]
-
-29 passed
+.................................. [100%]
+34 passed
 ```
 
 Current test distribution:
@@ -915,6 +970,7 @@ automotive-security-regression-lab/
 │   ├── test_foundation.py
 │   ├── test_test_runner.py
 │   └── test_tc001_diagnostic_authorization.py
+│   └── test_tc002_message_validation.py
 │
 ├── 05_examples/
 │   └── .gitkeep
@@ -972,7 +1028,7 @@ It must not be interpreted as evidence of a vulnerability in a real vehicle, ECU
 
 # Phase Boundaries
 
-Phase 5 is limited to TC-001 Diagnostic Authorization.
+Phase 6 includes TC-002 Message Validation in addition to the previously verified TC-001 Diagnostic Authorization test.
 
 The following capabilities are not part of the current implementation:
 
@@ -1158,17 +1214,11 @@ It does not represent:
 
 # Next Phase
 
-## Phase 6 — TC-002 Message Validation
+## Phase 7 — Evidence and Documentation
 
-The next implementation phase will introduce:
+The next phase will consolidate the verified implementation results into the project Evidence Framework and update the corresponding technical documentation.
 
-```text
-TC-002 — Message Validation
-```
-
-TC-002 will build on the existing security-test architecture and Evidence Framework established in Phases 3 and 4.
-
-The Phase-5 TC-001 implementation remains unchanged as the first completed dedicated security test case.
+The completed TC-001 and TC-002 implementations remain unchanged during this documentation phase.
 
 ---
 

@@ -11,11 +11,11 @@ From Security Finding to Reproducible Automotive Security Tests
 
 ## Current Status
 
-**Current Phase:** Phase 5 — TC-001 Diagnostic Authorization
+**Current Phase:** Phase 7 — TC-003 Regression Workflow
 
-**Status:** Implemented and verified
+**Status:** Phase 6 completed; Phase 7 ready for implementation
 
-Phase 5 is technically complete. The remaining activity is documentation consistency and repository quality review.
+Phase 5 is technically complete and locally verified. The implementation, verification, and test activities for the current phase are complete. The next activity is documentation update and consistency review.
 
 The current implementation provides:
 
@@ -40,7 +40,7 @@ The project remains a local simulation. No real vehicle, ECU, CAN, UDS, OEM, pro
 | Phase 3 | Security Test Architecture | Completed |
 | Phase 4 | Evidence Framework | Completed |
 | Phase 5 | TC-001 Diagnostic Authorization | Completed |
-| Phase 6 | TC-002 Message Validation | Planned |
+| Phase 6 | TC-002 Message Validation | Completed  |
 | Phase 7 | TC-003 Regression Workflow | Planned |
 | Phase 8 | Example Findings | Planned |
 | Phase 9 | pytest Regression Suite | Planned |
@@ -99,7 +99,7 @@ The ECU test suite covers:
 | Unauthorized protected operation in secure mode | `ACCESS_DENIED` |
 | Authorized protected operation in secure mode | `ACCESS_GRANTED` |
 | Unauthorized protected operation in vulnerable mode | `ACCESS_GRANTED` |
-| Unknown operation | `INVALID_REQUEST` |
+| Unknown operation | `UNSUPPORTED_OPERATION` |
 | Invalid request input | `INVALID_REQUEST` |
 | Invalid parameter structure | `INVALID_REQUEST` |
 
@@ -145,12 +145,12 @@ The Test Runner communicates with the target through the `ECUTarget` abstraction
 
 The architecture was verified with four scenarios:
 
-| Test ID       | Scenario                          | Expected          | Actual            | Result |
-| ------------- | --------------------------------- | ----------------- | ----------------- | ------ |
-| `TC-ARCH-001` | Unauthorized protected operation  | `ACCESS_DENIED`   | `ACCESS_DENIED`   | PASS   |
-| `TC-ARCH-002` | Authorized protected operation    | `ACCESS_GRANTED`  | `ACCESS_GRANTED`  | PASS   |
-| `TC-ARCH-003` | Invalid operation                 | `INVALID_REQUEST` | `INVALID_REQUEST` | PASS   |
-| `TC-ARCH-004` | Vulnerable unauthorized operation | `ACCESS_GRANTED`  | `ACCESS_GRANTED`  | PASS   |
+| Test ID       | Scenario                          | Expected                      | Actual                | Result |
+| ------------- | --------------------------------- | -----------------       | -----------------           | ------ |
+| `TC-ARCH-001` | Unauthorized protected operation  | `ACCESS_DENIED`         | `ACCESS_DENIED`             | PASS   |
+| `TC-ARCH-002` | Authorized protected operation    | `ACCESS_GRANTED`        | `ACCESS_GRANTED`            | PASS   |
+| `TC-ARCH-003` | Invalid operation                 | `UNSUPPORTED_OPERATION` | `UNSUPPORTED_OPERATION`     | PASS   |
+| `TC-ARCH-004` | Vulnerable unauthorized operation | `ACCESS_GRANTED`        | `ACCESS_GRANTED`            | PASS   |
 
 ---
 
@@ -304,6 +304,76 @@ ACCESS_GRANTED
 The vulnerable ECU mode intentionally produces `ACCESS_GRANTED` for the unauthorized case. This is a controlled simulation of the security-relevant deviation tested by TC-001.
 
 ---
+## Phase 5 — Message Validation Extension
+
+The simulated ECU now distinguishes between invalid requests and unsupported operations.
+
+The current response semantics are:
+
+| Condition | Response |
+|---|---|
+| Request is not a mapping | `INVALID_REQUEST` |
+| Operation is missing or empty | `INVALID_REQUEST` |
+| Operation is not supported | `UNSUPPORTED_OPERATION` |
+| Parameters are not a mapping | `INVALID_REQUEST` |
+| Parameter value is outside `0..255` | `REQUEST_REJECTED` |
+| Parameter value is a boolean | `REQUEST_REJECTED` |
+| ECU is blocked | `REQUEST_REJECTED` |
+| Valid protected operation without authorization | `ACCESS_DENIED` |
+| Valid protected operation with authorization | `ACCESS_GRANTED` |
+
+Parameter validation is explicitly limited to integer values from `0` through `255`. Python boolean values are excluded even though `bool` is a subclass of `int`.
+
+The boundary behavior is:
+
+| Input | Expected response |
+|---:|---|
+| `-1` | `REQUEST_REJECTED` |
+| `0` | Valid parameter |
+| `255` | Valid parameter |
+| `256` | `REQUEST_REJECTED` |
+
+This validation behavior is covered by the dedicated TC-002 message-validation tests.
+5. Phase-5 Verification
+
+Dein bisheriger Abschnitt sagt ausschließlich TC-001. Da du TC-002 bereits implementiert und vollständig getestet hast, sollte direkt nach dem bestehenden TC-001-Verification-Abschnitt dieser neue Abschnitt kommen:
+
+## TC-002 Verification
+
+TC-002 Message Validation is implemented and locally verified.
+
+The dedicated test module is:
+
+```text
+04_tests/test_tc002_message_validation.py
+```
+
+The dedicated verification was executed with:
+
+```text
+pytest -q 04_tests/test_tc002_message_validation.py
+```
+
+Result:
+
+```text
+5 passed
+```
+
+The complete test suite was subsequently executed with:
+
+```text
+pytest -q
+```
+
+Result:
+
+```text
+34 passed
+```
+
+TC-002 verifies deterministic request validation, including unsupported operations, invalid parameter structures, valid parameter boundaries, out-of-range values, and boolean exclusion.
+---
 
 ## Phase-5 Implementation
 
@@ -433,21 +503,28 @@ The test itself is not weakened to accommodate an insecure implementation.
 
 ---
 
-# Verification
-
 ## TC-001 Verification
 
-TC-001 was executed independently with:
+TC-001 is verified through four pytest tests covering:
+
+- secure unauthorized behavior
+- secure authorized behavior
+- controlled vulnerable behavior
+- machine-readable vulnerable evidence
+
+The TC-001 test module is:
 
 ```text
-pytest -q .\test_tc001_diagnostic_authorization.py
+04_tests/test_tc001_diagnostic_authorization.py
 ```
+The expected verification result is:
 
-Result:
 
 ```text
 4 passed
 ```
+
+---
 
 ## Complete Test Suite
 
@@ -466,7 +543,7 @@ pytest -q
 Result:
 
 ```text
-29 passed
+34 passed
 ```
 
 Current test distribution:
@@ -477,15 +554,16 @@ Current test distribution:
 04_tests/test_foundation.py: 1
 04_tests/test_test_runner.py: 4
 04_tests/test_tc001_diagnostic_authorization.py: 4
+04_tests/test_tc002_message_validation.py: 5
 ```
 
 Total:
 
 ```text
-29 tests
+34 tests
 ```
 
-The complete suite verifies that the Phase-5 implementation integrates with the previously completed ECU simulation, test architecture, and Evidence Framework.
+The complete suite verifies that the current implementation integrates the ECU simulation, security-test architecture, Evidence Framework, TC-001, and TC-002 without regressions.
 
 The test count reflects the current repository state and is not treated as a permanent project invariant.
 
@@ -495,22 +573,25 @@ The test count reflects the current repository state and is not treated as a per
 
 Phase 5 verification confirms:
 
-* TC-001 is implemented
-* TC-001 executes successfully
+* TC-001 is implemented and verified
+* TC-002 is implemented and verified
 * 4 TC-001 tests pass
+* 5 TC-002 tests pass
 * the complete pytest suite passes
-* all 29 current tests pass
+* all 34 current tests pass
 * Phase-2 ECU tests remain passing
 * Phase-3 architecture tests remain passing
 * Phase-4 Evidence tests remain passing
 * secure authorization behavior remains enforced
+* unsupported operations are distinguished from invalid requests
+* parameter boundary validation is enforced
+* boolean parameter values are rejected
 * the controlled vulnerable mode remains available
 * no real automotive communication was introduced
 
-**Current result: Phase-5 technical verification complete.**
+**Current result: Phase-5 implementation, verification, and testing complete.**
 
 Remaining activity:
-
 * documentation consistency review
 * repository quality review
 
@@ -534,15 +615,17 @@ Automated Verification
 
 The current implementation supports:
 
-* deterministic local ECU simulation
-* security requirement verification
-* abstract target communication
-* expected-versus-actual evaluation
 * structured evidence
 * JSON evidence serialization
-* controlled vulnerable-state testing
+* abstract target communication
 * automated pytest verification
+* security requirement verification
+* expected-versus-actual evaluation
+* deterministic local ECU simulation
+* controlled vulnerable-state testing
 * simulated security-fix and retest modeling
+* deterministic request and parameter validation
+* explicit response semantics for unsupported operations and rejected requests
 
 ---
 
@@ -571,7 +654,6 @@ The vulnerable ECU mode is a local test condition and does not represent a claim
 
 The following capabilities are not implemented in the current phase:
 
-* TC-002 Message Validation
 * TC-003 Regression Workflow
 * generalized security finding management
 * example security findings
@@ -587,8 +669,8 @@ The following capabilities are not implemented in the current phase:
 Planned sequence:
 
 ```text
-Phase 6  → TC-002 Message Validation
-Phase 7  → TC-003 Regression Workflow
+Phase 6  → TC-003 Regression Workflow
+Phase 7  → Example Findings
 Phase 8  → Example Findings
 Phase 9  → pytest Regression Suite
 Phase 10 → CI/CD

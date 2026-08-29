@@ -21,8 +21,8 @@ The methodology separates:
 
 The methodology is implemented incrementally across the project phases.
 
-The current implementation covers the security-test and evidence workflow
-through Phase 5 — TC-001 Diagnostic Authorization.
+The current implementation covers the security-test and evidence workflow 
+through Phase 6 — TC-002 Message Validation.
 
 Later phases extend this workflow into security finding management, remediation,
 retesting, regression testing, and CI/CD.
@@ -229,6 +229,13 @@ For TC-001:
 Protected diagnostic operations shall require authorization.
 ```
 
+For TC-002, the requirement is:
+
+```text
+Invalid diagnostic requests shall be rejected before security-relevant
+operation processing.
+```
+
 The requirement is translated into testable conditions.
 
 Unauthorized access:
@@ -291,6 +298,35 @@ simulation.
 
 It does not represent a complete production vehicle threat model.
 
+For TC-002:
+
+### Asset
+
+```text
+Protected ECU Request Processing
+```
+
+### Threat
+
+```text
+Malformed or invalid diagnostic input reaching security-relevant processing
+```
+
+### Potential Attacker
+
+```text
+Unauthorized or malformed diagnostic client
+```
+
+### Security Property
+
+```text
+Invalid requests shall be rejected before security-relevant operation processing.
+```
+
+The threat model is limited to the request-validation behavior represented by
+the controlled simulation.
+
 ---
 
 ## Step 3 — Attack Surface
@@ -306,6 +342,18 @@ Diagnostic Request
 Protected Operation
         ↓
 Authorization Check
+        ↓
+ECU Response
+```
+
+For TC-002:
+
+```text
+Diagnostic Request
+        ↓
+Request Validation
+        ↓
+Operation Processing
         ↓
 ECU Response
 ```
@@ -356,6 +404,25 @@ ACCESS_GRANTED
 
 This provides a deterministic security-relevant deviation for testing.
 
+For TC-002:
+
+```text
+If malformed or unsupported requests are not correctly validated,
+an invalid request may reach security-relevant operation processing.
+```
+
+The hypothesis is tested by submitting invalid request structures or unsupported
+operations to the simulated ECU.
+
+The expected secure behavior is:
+
+```text
+INVALID_REQUEST
+```
+
+The test therefore verifies that invalid input is rejected deterministically
+before protected operation processing.
+
 ---
 
 ## Step 5 — Security Test
@@ -391,6 +458,14 @@ ACCESS_GRANTED
 The expected result is defined by the security test and is not derived from
 the response returned by the target.
 
+TC-002 extends the security-test set with message-validation scenarios.
+
+The test verifies that invalid request structures and unsupported operations
+produce the expected `INVALID_REQUEST` response.
+
+The test remains independent from the internal request-validation
+implementation of the ECU simulator.
+
 ---
 
 ## Step 6 — Preconditions
@@ -425,6 +500,39 @@ vulnerable
 
 The vulnerable mode is used only to reproduce the intended security-relevant
 deviation in the controlled simulation.
+
+For TC-002, the relevant target precondition is a configured ECU target that
+accepts requests through the defined target interface.
+
+The test scenarios use invalid request inputs, including:
+
+Invalid request structure:
+
+```text
+invalid request structure
+```
+
+Unsupported operation:
+
+```text
+unsupported operation
+```
+
+The expected response for these invalid inputs is:
+
+```text
+INVALID_REQUEST
+```
+
+The ECU target remains configured through the same target abstraction used by
+the security-test infrastructure.
+
+TC-002 does not require a separate authorization precondition because the test
+focuses on request validation before security-relevant operation processing.
+
+The test scenarios are executed against the configured simulated ECU and are
+expected to produce deterministic INVALID_REQUEST responses for invalid
+inputs.
 
 ---
 
@@ -626,6 +734,93 @@ ACCESS_GRANTED
 This confirms that authorization enforcement does not prevent valid
 authorized access.
 
+# TC-002 Methodology Example
+
+TC-002 applies the implemented methodology to message validation.
+
+## Security Requirement
+
+```text
+Invalid diagnostic requests shall be rejected before security-relevant
+operation processing.
+```
+
+## Threat
+
+```text
+Malformed or unsupported diagnostic input may reach protected processing.
+```
+## Attack Surface
+
+```text
+Diagnostic Request
+        ↓
+Request Validation
+        ↓
+Operation Processing
+```
+
+## Attack Hypothesis
+
+```text
+An invalid requester may reach operation processing if request validation
+is not correctly enforced.
+```
+
+## Preconditions
+
+```text
+ECU mode = secure or vulnerable
+```
+
+## Input
+
+```text
+Invalid request structure
+or
+Unsupported operation
+```
+
+## Expected Result
+
+```text
+INVALID_REQUEST
+```
+
+## Evaluation
+
+```text
+Expected == Actual
+        ↓
+PASS
+```
+
+A deviation from the expected INVALID_REQUEST response results in:
+
+```text
+FAIL
+```
+
+The FAIL represents an observed deviation from the defined message-validation
+requirement.
+
+It does not automatically establish a formal security finding.
+
+## Evidence
+
+TC-002 uses the existing Evidence Framework and records the same structured
+execution information as the other security tests:
+
+Test ID
+Target
+Preconditions
+Input
+Expected
+Actual
+Result
+Timestamp
+Notes
+
 ---
 
 # Evidence and Traceability
@@ -656,8 +851,8 @@ Evidence
 This allows a test execution to be related to the security property it was
 designed to verify.
 
-The current implementation provides this relationship at the test and
-evidence level.
+The current implementation provides this relationship for the implemented
+security tests, including TC-001 and TC-002, at the test and evidence level.
 
 More advanced requirement identifiers, finding identifiers, and automated
 traceability are planned for later phases.
@@ -704,6 +899,8 @@ Security Test Architecture Tests
 Evidence Framework Tests
         ↓
 TC-001 Security Test
+        ↓
+TC-002 Security Test
         ↓
 Complete pytest Suite
 ```
@@ -910,8 +1107,9 @@ Evidence
 The regression suite will provide repeatable execution of established
 security tests.
 
-The current implementation verifies the existing test set through pytest,
-but the complete regression workflow belongs to a later phase.
+The current implementation verifies the implemented security tests through
+pytest, but the dedicated regression suite and regression workflow belong to
+later project phases.
 
 ---
 
@@ -1054,11 +1252,11 @@ Implemented capabilities include:
 * structured evidence
 * JSON serialization
 * TC-001 Diagnostic Authorization
+* TC-002 Message Validation
 * local pytest verification
 
 The following capabilities belong to later project phases:
 
-* TC-002 Message Validation
 * security finding management
 * root-cause management
 * remediation tracking

@@ -363,6 +363,7 @@ PROTECTED_OPERATION
 the secure ECU is expected to produce:
 
 ACCESS_GRANTED
+
 Vulnerable ECU
 
 The controlled vulnerable ECU intentionally produces:
