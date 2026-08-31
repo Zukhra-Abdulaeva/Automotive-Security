@@ -2,8 +2,7 @@
 
 ## Purpose
 
-The Automotive Security Regression Lab uses a structured methodology to turn a
-defined security requirement into a reproducible security test.
+The Automotive Security Regression Lab uses a structured methodology to turn a defined security requirement into a reproducible security test.
 
 The methodology separates:
 
@@ -21,11 +20,9 @@ The methodology separates:
 
 The methodology is implemented incrementally across the project phases.
 
-The current implementation covers the security-test and evidence workflow 
-through Phase 6 — TC-002 Message Validation.
+The current implementation covers the security-test and evidence workflow through Phase 6 — TC-002 Message Validation.
 
-Later phases extend this workflow into security finding management, remediation,
-retesting, regression testing, and CI/CD.
+Later phases extend this workflow into security finding management, remediation, retesting, regression testing, and CI/CD.
 
 ---
 
@@ -65,7 +62,7 @@ Regression
 Automated Regression
         ↓
 CI/CD
-````
+```
 
 Not all stages are currently implemented.
 
@@ -89,8 +86,7 @@ Expected vs Actual
 Evidence
 ```
 
-The distinction between implemented and planned capabilities is maintained
-throughout this document.
+The distinction between implemented and planned capabilities is maintained throughout this document.
 
 ---
 
@@ -100,8 +96,7 @@ throughout this document.
 
 The expected security behavior is defined before test execution.
 
-The security test evaluates a security requirement rather than deriving the
-requirement from the observed implementation.
+The security test evaluates a security requirement rather than deriving the requirement from the observed implementation.
 
 For TC-001, the requirement is:
 
@@ -109,15 +104,11 @@ For TC-001, the requirement is:
 Protected diagnostic operations shall require authorization.
 ```
 
-The expected behavior is therefore defined independently of the ECU
-implementation.
-
----
+The expected behavior is therefore defined independently of the ECU implementation.
 
 ### Test Through the Target Boundary
 
-Security tests interact with the system under test through the defined target
-interface.
+Security tests interact with the system under test through the defined target interface.
 
 The test does not depend on internal ECU implementation details.
 
@@ -135,10 +126,7 @@ Simulated ECU
 Response
 ```
 
-This keeps the security-test logic independent from the concrete ECU
-implementation.
-
----
+This keeps the security-test logic independent from the concrete ECU implementation.
 
 ### Separate Expected and Actual Behavior
 
@@ -169,17 +157,13 @@ results in:
 FAIL
 ```
 
-The expected security behavior is not changed to make an insecure
-implementation pass.
-
----
+The expected security behavior is not changed to make an insecure implementation pass.
 
 ### Keep Evidence Separate from Execution
 
 Evidence is generated after test execution.
 
-The evidence layer records the completed observation but does not control
-target behavior or test execution.
+The evidence layer records the completed observation but does not control target behavior or test execution.
 
 The separation is:
 
@@ -193,12 +177,9 @@ Evidence
 
 This keeps evidence generation independent from the system under test.
 
----
-
 ### Keep Tests Reproducible
 
-A security test should produce the same security-relevant result when executed
-against the same defined target state and input.
+A security test should produce the same security-relevant result when executed against the same defined target state and input.
 
 The current simulation therefore avoids dependencies on:
 
@@ -208,8 +189,7 @@ The current simulation therefore avoids dependencies on:
 * uncontrolled target state
 * random security behavior
 
-Execution timestamps are generated dynamically and are treated as execution
-metadata rather than as part of the security decision.
+Execution timestamps are generated dynamically and are treated as execution metadata rather than as part of the security decision.
 
 ---
 
@@ -217,11 +197,9 @@ metadata rather than as part of the security decision.
 
 ## Step 1 — Security Requirement
 
-The first step is to define the security property that the test is intended
-to verify.
+The first step is to define the security property that the test is intended to verify.
 
-A security requirement describes expected security behavior without depending
-on a specific implementation.
+A security requirement describes expected security behavior without depending on a specific implementation.
 
 For TC-001:
 
@@ -264,8 +242,7 @@ The requirement remains unchanged during test execution.
 
 ## Step 2 — Threat Model
 
-The threat model identifies the asset, threat, potential attacker, and
-security property relevant to the test.
+The threat model identifies the asset, threat, potential attacker, and security property relevant to the test.
 
 For TC-001:
 
@@ -293,8 +270,7 @@ Unauthorized diagnostic client
 Authorization must be enforced before execution of the protected operation.
 ```
 
-The threat model is limited to the behavior represented by the controlled
-simulation.
+The threat model is limited to the behavior represented by the controlled simulation.
 
 It does not represent a complete production vehicle threat model.
 
@@ -324,15 +300,13 @@ Unauthorized or malformed diagnostic client
 Invalid requests shall be rejected before security-relevant operation processing.
 ```
 
-The threat model is limited to the request-validation behavior represented by
-the controlled simulation.
+The threat model is limited to the request-validation behavior represented by the controlled simulation.
 
 ---
 
 ## Step 3 — Attack Surface
 
-The attack surface identifies the interface through which the security
-property is evaluated.
+The attack surface identifies the interface through which the security property is evaluated.
 
 For TC-001:
 
@@ -358,21 +332,17 @@ Operation Processing
 ECU Response
 ```
 
-Within the project, this is represented by the request interface exposed by
-the simulated ECU.
+Within the project, this is represented by the request interface exposed by the simulated ECU.
 
-No real CAN bus, UDS endpoint, vehicle network, or physical diagnostic
-interface is involved.
+No real CAN bus, UDS endpoint, vehicle network, or physical diagnostic interface is involved.
 
-The documented attack surface therefore represents the simulated target
-boundary.
+The documented attack surface therefore represents the simulated target boundary.
 
 ---
 
 ## Step 4 — Attack Hypothesis
 
-The attack hypothesis describes how the security requirement could be
-violated.
+The attack hypothesis describes how the security requirement could be violated.
 
 For TC-001:
 
@@ -382,8 +352,7 @@ an unauthorized requester may be able to execute
 the protected operation.
 ```
 
-The hypothesis is tested by submitting the protected operation while
-authorization is disabled.
+The hypothesis is tested by submitting the protected operation while authorization is disabled.
 
 ```text
 authorization = false
@@ -407,28 +376,40 @@ This provides a deterministic security-relevant deviation for testing.
 For TC-002:
 
 ```text
-If malformed or unsupported requests are not correctly validated,
-an invalid request may reach security-relevant operation processing.
+If malformed, unsupported, or otherwise impermissible requests are not
+correctly validated, an invalid request may reach security-relevant
+operation processing.
 ```
 
-The hypothesis is tested by submitting invalid request structures or unsupported
-operations to the simulated ECU.
+The hypothesis is tested by submitting deterministic invalid or impermissible requests to the simulated ECU.
 
-The expected secure behavior is:
+The expected response depends on the validation condition:
 
 ```text
+Invalid request structure
+        ↓
 INVALID_REQUEST
 ```
 
-The test therefore verifies that invalid input is rejected deterministically
-before protected operation processing.
+```text
+Unsupported operation
+        ↓
+UNSUPPORTED_OPERATION
+```
+
+```text
+Invalid parameter data or blocked ECU state
+        ↓
+REQUEST_REJECTED
+```
+
+The test therefore verifies that invalid or impermissible input is rejected deterministically before protected operation processing.
 
 ---
 
 ## Step 5 — Security Test
 
-The security test translates the security requirement and attack hypothesis
-into an executable test definition.
+The security test translates the security requirement and attack hypothesis into an executable test definition.
 
 The current `SecurityTestCase` abstraction contains:
 
@@ -455,16 +436,50 @@ The authorized scenario expects:
 ACCESS_GRANTED
 ```
 
-The expected result is defined by the security test and is not derived from
-the response returned by the target.
+The expected result is defined by the security test and is not derived from the response returned by the target.
 
 TC-002 extends the security-test set with message-validation scenarios.
 
-The test verifies that invalid request structures and unsupported operations
-produce the expected `INVALID_REQUEST` response.
+TC-002 evaluates the externally observable ECU response against the defined expected behavior.
 
-The test remains independent from the internal request-validation
-implementation of the ECU simulator.
+The TC-002 validation flow is:
+
+```text
+TC-002 — Message Validation
+        ↓
+Request Validation
+        ↓
+┌─────────────────────────────┐
+│ Invalid request structure   │ → INVALID_REQUEST
+│ Invalid parameter data      │ → REQUEST_REJECTED
+│ Unsupported operation       │ → UNSUPPORTED_OPERATION
+│ Blocked ECU state           │ → REQUEST_REJECTED
+└─────────────────────────────┘
+```
+
+TC-002 therefore distinguishes between malformed or invalid request data, unsupported operations, and requests that are rejected because of parameter or ECU-state restrictions.
+
+The expected response semantics are:
+
+```text
+Condition                                      Expected response
+
+Request is not a valid mapping                 INVALID_REQUEST
+Operation is missing or empty                  INVALID_REQUEST
+Parameters are not a valid mapping             INVALID_REQUEST
+Parameter value is outside 0..255              REQUEST_REJECTED
+Parameter value is a boolean                   REQUEST_REJECTED
+Operation is not supported                     UNSUPPORTED_OPERATION
+ECU is blocked                                 REQUEST_REJECTED
+```
+
+The test verifies these externally observable response semantics without depending on the ECU simulator's internal validation implementation.
+
+TC-002 is limited to deterministic message and parameter validation.
+
+It does not introduce or imply a formal security-finding lifecycle, remediation management, regression management, or CI/CD workflow.
+
+The test remains independent from the internal request-validation implementation of the ECU simulator.
 
 ---
 
@@ -498,13 +513,11 @@ or:
 vulnerable
 ```
 
-The vulnerable mode is used only to reproduce the intended security-relevant
-deviation in the controlled simulation.
+The vulnerable mode is used only to reproduce the intended security-relevant deviation in the controlled simulation.
 
-For TC-002, the relevant target precondition is a configured ECU target that
-accepts requests through the defined target interface.
+For TC-002, the target is configured as a secure simulated ECU through the same target abstraction used by the security-test infrastructure.
 
-The test scenarios use invalid request inputs, including:
+The TC-002 scenarios establish their required conditions through the defined test inputs and explicit ECU state where required.
 
 Invalid request structure:
 
@@ -518,21 +531,21 @@ Unsupported operation:
 unsupported operation
 ```
 
-The expected response for these invalid inputs is:
+Invalid parameter value:
 
 ```text
-INVALID_REQUEST
+parameter value outside 0..255
 ```
 
-The ECU target remains configured through the same target abstraction used by
-the security-test infrastructure.
+Blocked ECU state:
 
-TC-002 does not require a separate authorization precondition because the test
-focuses on request validation before security-relevant operation processing.
+```text
+ecu_state = blocked
+```
 
-The test scenarios are executed against the configured simulated ECU and are
-expected to produce deterministic INVALID_REQUEST responses for invalid
-inputs.
+The expected response depends on the specific validation condition and is defined by the individual TC-002 test case.
+
+TC-002 does not require a separate authorization precondition for the message-validation scenarios, except where authorization is explicitly configured to establish the blocked-state scenario.
 
 ---
 
@@ -560,8 +573,7 @@ The Test Runner does not access internal ECU state.
 
 The simulator processes the request and returns a structured response.
 
-The response is then evaluated against the expected result defined by the
-security test.
+The response is then evaluated against the expected result defined by the security test.
 
 ---
 
@@ -601,8 +613,7 @@ Actual   = ACCESS_GRANTED
 Result   = FAIL
 ```
 
-The `FAIL` represents an observed deviation from the defined security
-requirement.
+The `FAIL` represents an observed deviation from the defined security requirement.
 
 It does not automatically establish a formal security finding.
 
@@ -731,8 +742,7 @@ PROTECTED_OPERATION
 ACCESS_GRANTED
 ```
 
-This confirms that authorization enforcement does not prevent valid
-authorized access.
+This confirms that authorization enforcement does not prevent valid authorized access.
 
 # TC-002 Methodology Example
 
@@ -748,8 +758,10 @@ operation processing.
 ## Threat
 
 ```text
-Malformed or unsupported diagnostic input may reach protected processing.
+Malformed, unsupported, or impermissible diagnostic input may reach
+security-relevant processing.
 ```
+
 ## Attack Surface
 
 ```text
@@ -770,22 +782,57 @@ is not correctly enforced.
 ## Preconditions
 
 ```text
-ECU mode = secure or vulnerable
+ECU mode = secure
 ```
+
+Scenario-specific conditions may additionally include:
+
+```text
+ECU state = blocked
+```
+
+where required by the test scenario.
 
 ## Input
 
 ```text
 Invalid request structure
+
 or
+
 Unsupported operation
+
+or
+
+Invalid parameter data
+
+or
+
+Protected operation while ECU is blocked
 ```
 
 ## Expected Result
 
+The expected response depends on the validation condition:
+
 ```text
-INVALID_REQUEST
+Invalid request structure -> INVALID_REQUEST
+
+Unsupported operation -> UNSUPPORTED_OPERATION
+
+Invalid parameter data -> REQUEST_REJECTED
+
+Protected operation while ECU is blocked -> REQUEST_REJECTED
 ```
+
+Valid parameter boundary values are separately verified:
+
+```text
+value = 0   -> ACCESS_GRANTED
+value = 255 -> ACCESS_GRANTED
+```
+
+when the ECU is authorized and otherwise in an acceptable operational state.
 
 ## Evaluation
 
@@ -795,22 +842,21 @@ Expected == Actual
 PASS
 ```
 
-A deviation from the expected INVALID_REQUEST response results in:
+A deviation from the expected response results in:
 
 ```text
 FAIL
 ```
 
-The FAIL represents an observed deviation from the defined message-validation
-requirement.
+The `FAIL` represents an observed deviation from the defined message-validation requirement.
 
 It does not automatically establish a formal security finding.
 
 ## Evidence
 
-TC-002 uses the existing Evidence Framework and records the same structured
-execution information as the other security tests:
+TC-002 uses the existing Evidence Framework and records the same structured execution information as the other security tests:
 
+```text
 Test ID
 Target
 Preconditions
@@ -820,13 +866,13 @@ Actual
 Result
 Timestamp
 Notes
+```
 
 ---
 
 # Evidence and Traceability
 
-The methodology maintains traceability from the security requirement to the
-test execution and resulting evidence.
+The methodology maintains traceability from the security requirement to the test execution and resulting evidence.
 
 The current relationship is:
 
@@ -848,14 +894,11 @@ Test Result
 Evidence
 ```
 
-This allows a test execution to be related to the security property it was
-designed to verify.
+This allows a test execution to be related to the security property it was designed to verify.
 
-The current implementation provides this relationship for the implemented
-security tests, including TC-001 and TC-002, at the test and evidence level.
+The current implementation provides this relationship for the implemented security tests, including TC-001 and TC-002, at the test and evidence level.
 
-More advanced requirement identifiers, finding identifiers, and automated
-traceability are planned for later phases.
+More advanced requirement identifiers, finding identifiers, and automated traceability are planned for later phases.
 
 ---
 
@@ -863,8 +906,7 @@ traceability are planned for later phases.
 
 Reproducibility is a core requirement of the methodology.
 
-The same test should be executable repeatedly against the same defined target
-state and input.
+The same test should be executable repeatedly against the same defined target state and input.
 
 The current simulation supports this through:
 
@@ -886,8 +928,7 @@ It does not affect the security-test result.
 
 # Validation of the Test Infrastructure
 
-The methodology applies verification to both the simulated target and the
-security-test infrastructure.
+The methodology applies verification to both the simulated target and the security-test infrastructure.
 
 The current verification layers are:
 
@@ -905,19 +946,15 @@ TC-002 Security Test
 Complete pytest Suite
 ```
 
-This allows changes in the ECU simulation, test architecture, evidence
-handling, or security-test implementation to be detected through automated
-tests.
+This allows changes in the ECU simulation, test architecture, evidence handling, or security-test implementation to be detected through automated tests.
 
-The test infrastructure is therefore treated as software that also requires
-verification.
+The test infrastructure is therefore treated as software that also requires verification.
 
 ---
 
 # Future Security Lifecycle
 
-The long-term methodology extends the current test and evidence workflow into
-a complete security lifecycle.
+The long-term methodology extends the current test and evidence workflow into a complete security lifecycle.
 
 The target workflow is:
 
@@ -937,8 +974,7 @@ Retest
 Regression
 ```
 
-These stages are part of the target methodology but are not yet implemented
-as a complete workflow in the current phase.
+These stages are part of the target methodology but are not yet implemented as a complete generalized workflow in the current phase.
 
 ---
 
@@ -980,11 +1016,9 @@ Generalized root-cause management belongs to a later project phase.
 
 ## Recommended Fix
 
-The remediation should address the security cause rather than modify the
-security test expectation.
+The remediation should address the security cause rather than modify the security test expectation.
 
-For TC-001, the simulated ECU must enforce authorization before granting the
-protected operation.
+For TC-001, the simulated ECU must enforce authorization before granting the protected operation.
 
 The required security property remains:
 
@@ -998,8 +1032,7 @@ The security test is not weakened to accommodate an insecure implementation.
 
 ## Implemented Fix
 
-The implemented fix changes the system under test so that it satisfies the
-security requirement.
+The implemented fix changes the system under test so that it satisfies the security requirement.
 
 The expected relationship is:
 
@@ -1016,6 +1049,8 @@ Same Security Test
 ```
 
 The test expectation remains unchanged.
+
+The generalized finding, remediation, and retest workflow is not yet implemented as a complete project capability in the current phase.
 
 ---
 
@@ -1057,8 +1092,9 @@ PROTECTED_OPERATION
 ACCESS_GRANTED
 ```
 
-The purpose of the retest is to verify that the security property is now
-satisfied.
+The purpose of the retest is to verify that the security property is now satisfied.
+
+The generalized project-level retest workflow belongs to a later phase.
 
 ---
 
@@ -1066,8 +1102,7 @@ satisfied.
 
 Retesting verifies the specific corrected security behavior.
 
-Regression testing verifies that previously established security behavior
-remains correct after later changes.
+Regression testing verifies that previously established security behavior remains correct after later changes.
 
 The target workflow is:
 
@@ -1083,8 +1118,7 @@ Results
 Evidence
 ```
 
-The current project does not yet implement a complete regression orchestration
-layer.
+The current project does not yet implement a complete regression orchestration layer.
 
 Regression capabilities are introduced in later project phases.
 
@@ -1104,12 +1138,9 @@ Test Results
 Evidence
 ```
 
-The regression suite will provide repeatable execution of established
-security tests.
+The regression suite will provide repeatable execution of established security tests.
 
-The current implementation verifies the implemented security tests through
-pytest, but the dedicated regression suite and regression workflow belong to
-later project phases.
+The current implementation verifies the implemented security tests through pytest, but the dedicated regression suite and regression workflow belong to later project phases.
 
 ---
 
@@ -1196,8 +1227,7 @@ The project does not treat planned stages as completed functionality.
 
 # Scope and Limitations
 
-The methodology is currently defined for the controlled simulation
-environment of the Automotive Security Regression Lab.
+The methodology is currently defined for the controlled simulation environment of the Automotive Security Regression Lab.
 
 It does not define procedures for:
 
@@ -1210,11 +1240,9 @@ It does not define procedures for:
 * customer systems
 * production penetration testing
 
-The methodology demonstrates engineering principles for reproducible
-security testing.
+The methodology demonstrates engineering principles for reproducible security testing.
 
-It is not presented as a complete operational methodology for real-world
-automotive penetration testing.
+It is not presented as a complete operational methodology for real-world automotive penetration testing.
 
 ---
 
@@ -1260,7 +1288,7 @@ The following capabilities belong to later project phases:
 * security finding management
 * root-cause management
 * remediation tracking
-* retest workflow as a generalized project capability
+* generalized retest workflow
 * complete regression orchestration
 * SEC-001 / SEC-002 example findings
 * dedicated pytest regression suite
@@ -1296,12 +1324,8 @@ Retest
 Prevent regression
 ```
 
-Only the stages implemented in the current project phase are treated as
-verified capabilities.
+Only the stages implemented in the current project phase are treated as verified capabilities.
 
-The methodology keeps the security requirement, system under test, test
-execution, evidence, and later security-lifecycle activities separate.
+The methodology keeps the security requirement, system under test, test execution, evidence, and later security-lifecycle activities separate.
 
-This separation provides a controlled basis for extending individual security
-tests into a reproducible security regression workflow and, ultimately, an
-automated CI/CD process.
+This separation provides a controlled basis for extending individual security tests into a reproducible security regression workflow and, ultimately, an automated CI/CD process.

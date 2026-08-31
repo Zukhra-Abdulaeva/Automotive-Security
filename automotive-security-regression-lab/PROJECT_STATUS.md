@@ -15,8 +15,6 @@ From Security Finding to Reproducible Automotive Security Tests
 
 **Status:** Phase 6 completed; Phase 7 ready for implementation
 
-Phase 5 is technically complete and locally verified. The implementation, verification, and test activities for the current phase are complete. The next activity is documentation update and consistency review.
-
 The current implementation provides:
 
 - deterministic ECU simulation
@@ -24,6 +22,7 @@ The current implementation provides:
 - structured test results
 - Evidence Framework
 - TC-001 Diagnostic Authorization
+- TC-002 Message Validation
 - secure and controlled vulnerable execution modes
 - automated pytest verification
 
@@ -338,41 +337,6 @@ This validation behavior is covered by the dedicated TC-002 message-validation t
 
 Dein bisheriger Abschnitt sagt ausschließlich TC-001. Da du TC-002 bereits implementiert und vollständig getestet hast, sollte direkt nach dem bestehenden TC-001-Verification-Abschnitt dieser neue Abschnitt kommen:
 
-## TC-002 Verification
-
-TC-002 Message Validation is implemented and locally verified.
-
-The dedicated test module is:
-
-```text
-04_tests/test_tc002_message_validation.py
-```
-
-The dedicated verification was executed with:
-
-```text
-pytest -q 04_tests/test_tc002_message_validation.py
-```
-
-Result:
-
-```text
-5 passed
-```
-
-The complete test suite was subsequently executed with:
-
-```text
-pytest -q
-```
-
-Result:
-
-```text
-34 passed
-```
-
-TC-002 verifies deterministic request validation, including unsupported operations, invalid parameter structures, valid parameter boundaries, out-of-range values, and boolean exclusion.
 ---
 
 ## Phase-5 Implementation
@@ -526,6 +490,108 @@ The expected verification result is:
 
 ---
 
+## Phase 6 — TC-002 Message Validation
+
+**Status: Implemented and Verified**
+
+Phase 6 introduces the second dedicated security test case.
+
+```text
+TC-002 — Message Validation
+```
+
+TC-002 verifies deterministic request and parameter validation within the simulated ECU.
+
+The test case distinguishes invalid requests, unsupported operations, rejected parameter values, unexpected ECU states, and valid boundary values.
+
+Response Semantics
+
+The current response semantics are:
+
+Condition	                                          Response
+Request is not a mapping	                        INVALID_REQUEST
+Operation is missing or empty	                        INVALID_REQUEST
+Operation is not supported	                        UNSUPPORTED_OPERATION
+Parameters are not a mapping	                        INVALID_REQUEST
+Parameter value is outside 0..255	                  REQUEST_REJECTED
+Parameter value is a boolean	                        REQUEST_REJECTED
+ECU is blocked	                                    REQUEST_REJECTED
+Valid protected operation without authorization	      ACCESS_DENIED
+Valid protected operation with authorization	      ACCESS_GRANTED
+
+Parameter validation is explicitly limited to integer values from 0 through 255. Python boolean values are excluded even though bool is a subclass of int.
+
+Boundary Behavior
+Input	      Expected response
+-1	      REQUEST_REJECTED
+0	      Valid parameter
+255	      Valid parameter
+256	      REQUEST_REJECTED
+
+This validation behavior is covered by the dedicated TC-002 message-validation tests.
+
+Phase-6 Implementation
+
+The TC-002 test module is:
+
+```text
+04_tests/test_tc002_message_validation.py
+```
+
+TC-002 uses the existing ECU simulation and security-test infrastructure. The tests evaluate the actual ECU response against the defined expected response status.
+
+The test case does not bypass the ECU interface or directly manipulate the expected result.
+
+Phase-6 Scenarios
+
+TC-002 covers four primary validation scenarios:
+
+Test ID	Scenario	Expected
+TC-002-A	Invalid input	INVALID_REQUEST
+TC-002-B	Unsupported operation	UNSUPPORTED_OPERATION
+TC-002-C	Boundary condition	REQUEST_REJECTED
+TC-002-D	Unexpected ECU state	REQUEST_REJECTED
+
+The dedicated test suite additionally verifies that the valid parameter boundary values 0 and 255 are accepted for the protected operation.
+
+TC-002 Verification
+
+TC-002 is implemented and locally verified.
+
+The dedicated test module is:
+
+```text
+04_tests/test_tc002_message_validation.py
+```
+
+The dedicated verification was executed with:
+
+```text
+pytest -q 04_tests/test_tc002_message_validation.py
+```
+
+Result:
+
+```text
+5 passed
+```
+
+The complete test suite was subsequently executed with:
+
+```text
+pytest -q
+```
+
+Result:
+
+```text
+34 passed
+```
+
+TC-002 verifies deterministic request validation, including unsupported operations, invalid parameter structures, valid parameter boundaries, out-of-range values, unexpected ECU state, and boolean exclusion.
+
+---
+
 ## Complete Test Suite
 
 The complete suite was executed from:
@@ -669,8 +735,7 @@ The following capabilities are not implemented in the current phase:
 Planned sequence:
 
 ```text
-Phase 6  → TC-003 Regression Workflow
-Phase 7  → Example Findings
+Phase 7  → TC-003 Regression Workflow
 Phase 8  → Example Findings
 Phase 9  → pytest Regression Suite
 Phase 10 → CI/CD
@@ -695,11 +760,14 @@ Phase 14 → Recruiter / Interview Review
 | `docs/04_end-to-end-assessment-case.md`            | End-to-end assessment structure                               |
 | `01_threat_model/01_attack_surface.md`             | Modeled attack surface                                        |
 | `02_test_cases/TC-001-diagnostic-authorization.md` | TC-001 security-test specification                            |
+| `02_test_cases/TC-002-message-validation.md`       | TC-002 security-test specification |
 
 ---
 
 # Next Phase
 
-**Phase 6 — TC-002 Message Validation**
+**Phase 7 — TC-003 Regression Workflow**
 
-The next implementation step is to introduce the second dedicated security test case while preserving the existing test architecture and Evidence Framework.
+The next implementation step is to introduce the third dedicated security test case while preserving the existing test architecture and Evidence Framework.
+
+Phase 7 will build on the verified TC-001 and TC-002 implementations and extend the project toward reproducible regression testing.
