@@ -1673,4 +1673,3 @@ The methodology keeps the security requirement, system under test, test executio
 
 This separation provides a controlled basis for extending individual security tests into a reproducible security regression workflow and, ultimately, an automated CI/CD process.
 
-````

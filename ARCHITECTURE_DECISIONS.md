@@ -797,5 +797,3 @@ documented and reviewed.
 New implementation behavior that introduces a meaningful architecture
 decision shall be documented as a new ADR rather than being silently added
 to an existing historical decision.
-
-```
