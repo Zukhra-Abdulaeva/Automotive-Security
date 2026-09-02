@@ -1,9 +1,0 @@
-[
-    {
-        "timestamp": "2026-07-25T15:18:22",
-        "test": "Security Access",
-        "request": "27 01",
-        "response": "67 01 3A 4F 92",
-        "status": "Positive Response"
-    }
-]
