@@ -1,4 +1,3 @@
-````markdown
 # Automotive Security Regression Lab
 
 **From Security Finding to Reproducible Automotive Security Tests**
