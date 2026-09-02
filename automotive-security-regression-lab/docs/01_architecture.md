@@ -6,8 +6,10 @@ The Automotive Security Regression Lab uses a deterministic software
 architecture for developing and executing automotive security tests against a
 simulated ECU.
 
-The architecture was introduced in Phase 3 and extended in Phase 4 with the Evidence Framework. 
-Phase 5 adds TC-001 — Diagnostic Authorization, and Phase 6 adds TC-002 — Message Validation.
+The architecture was introduced in Phase 3 and extended in Phase 4 with the
+Evidence Framework. Phase 5 adds TC-001 — Diagnostic Authorization, Phase 6
+adds TC-002 — Message Validation, and Phase 7 adds the verified TC-003
+Regression Workflow.
 
 The architecture separates the following responsibilities:
 
@@ -47,7 +49,7 @@ Communication Layer
        |
        v
 ECU
-````
+```
 
 The project does not implement this real-world communication stack.
 
@@ -75,6 +77,61 @@ Test Result
        v
 Evidence
 ```
+
+---
+
+## Phase-7 Regression Flow
+
+Phase 7 reuses the existing architecture rather than introducing a separate
+regression execution stack.
+
+The TC-003 execution path is:
+
+```text
+Existing TC-001 SecurityTestCase
+       |
+       v
+SecurityTestRunner
+       |
+       v
+ECUAdapter
+       |
+       v
+ECUSimulator
+       |
+       v
+ECUResponse
+       |
+       v
+TestResult
+       |
+       v
+EvidenceGenerator
+       |
+       v
+Evidence
+```
+
+The regression workflow uses the same security condition in both simulator
+modes:
+
+```text
+SecurityMode.VULNERABLE
+        |
+        v
+Controlled reproduction of the modeled deviation
+
+SecurityMode.SECURE
+        |
+        v
+Retest of the same unauthorized condition
+```
+
+The regression module does not modify the `SecurityTestRunner`,
+`ECUAdapter`, or Evidence Framework.
+
+TC-003 therefore extends the use of the existing architecture rather than
+introducing a new execution abstraction.
 
 The `ECUSimulator` is the system under test.
 
@@ -143,10 +200,10 @@ component.
 
 The current implementation contains:
 
-* `test_id`
-* `description`
-* `request`
-* `expected_status`
+- `test_id`
+- `description`
+- `request`
+- `expected_status`
 
 The test case defines the request that is sent to the target and the response
 status that is expected for the defined security scenario.
@@ -158,6 +215,31 @@ The test case does not implement the ECU security policy.
 
 The expected result is therefore defined independently from the concrete
 implementation of the simulated ECU.
+
+TC-003 does not introduce a separate `SecurityTestCase` with a new
+`test_id`. The regression workflow reuses the existing TC-001
+`SecurityTestCase` and its defined authorization security property.
+
+The relationship is:
+
+```text
+TC-003
+  |
+  | defines and verifies the regression workflow
+  v
+test_security_regression.py
+  |
+  | reuses
+  v
+TC-001 SecurityTestCase
+  |
+  +-- test_id = "TC-001"
+  |
+  +-- expected unauthorized behavior = ACCESS_DENIED
+```
+
+This preserves the original security property while allowing the regression
+workflow to execute the relevant condition again against the secure target.
 
 ---
 
@@ -198,15 +280,19 @@ The Test Runner does not access internal ECU state.
 
 It does not implement:
 
-* ECU security policy
-* authorization decisions
-* security finding management
-* evidence storage
-* regression orchestration
-* CI/CD
+- ECU security policy
+- authorization decisions
+- security finding management
+- evidence storage
+- regression orchestration
+- CI/CD
 
 The Test Runner is responsible for executing and evaluating the security
 test, not for implementing the security behavior being tested.
+
+For TC-003, the existing `SecurityTestRunner` remains responsible for the
+expected-versus-actual comparison. No separate regression execution engine
+is introduced.
 
 ---
 
@@ -251,12 +337,12 @@ the resulting response.
 
 The adapter does not:
 
-* define security requirements
-* implement security-test logic
-* make authorization decisions
-* evaluate security findings
-* generate evidence
-* modify test results
+- define security requirements
+- implement security-test logic
+- make authorization decisions
+- evaluate security findings
+- generate evidence
+- modify test results
 
 The adapter therefore provides the boundary between the generic test
 execution layer and the concrete simulated target.
@@ -275,12 +361,12 @@ by the security-test architecture.
 
 Its responsibilities include:
 
-* maintaining the configured security mode
-* maintaining the authorization state
-* validating incoming requests
-* processing the requested operation
-* applying the configured security behavior
-* returning a deterministic `ECUResponse`
+- maintaining the configured security mode
+- maintaining the authorization state
+- validating incoming requests
+- processing the requested operation
+- applying the configured security behavior
+- returning a deterministic `ECUResponse`
 
 The simulator supports two security modes:
 
@@ -328,6 +414,10 @@ The vulnerable behavior is a controlled simulation condition. It does not
 represent a real ECU vulnerability or a claim about a production automotive
 system.
 
+For Phase 7, the vulnerable mode is used to reproduce the modeled pre-fix
+behavior in a controlled test environment. Secure mode represents the
+intended secure behavior used for the regression retest.
+
 The simulator remains independent from the Test Runner and Evidence
 Framework.
 
@@ -341,8 +431,8 @@ The simulator returns an `ECUResponse`.
 
 The current response model contains:
 
-* `status`
-* `operation`
+- `status`
+- `operation`
 
 The supported response statuses are:
 
@@ -350,6 +440,8 @@ The supported response statuses are:
 ACCESS_GRANTED
 ACCESS_DENIED
 INVALID_REQUEST
+UNSUPPORTED_OPERATION
+REQUEST_REJECTED
 ```
 
 The response represents the behavior observed by the security-test
@@ -394,6 +486,11 @@ The ECU simulator does not determine the final test result.
 It only returns the response representing the behavior of the system under
 test.
 
+For the TC-003 vulnerable-state demonstration, the expected security behavior
+remains `ACCESS_DENIED`, while the controlled vulnerable simulator returns
+`ACCESS_GRANTED`. The resulting `TestResult` is therefore a failed security
+test result.
+
 ---
 
 ## Evidence Framework
@@ -403,15 +500,15 @@ execution in a structured format.
 
 The current Evidence model contains:
 
-* `test_id`
-* `timestamp`
-* `target`
-* `preconditions`
-* `input`
-* `expected`
-* `actual`
-* `result`
-* `notes`
+- `test_id`
+- `timestamp`
+- `target`
+- `preconditions`
+- `input`
+- `expected`
+- `actual`
+- `result`
+- `notes`
 
 The Evidence Framework operates after test execution:
 
@@ -431,6 +528,10 @@ It does not change the ECU response, modify the expected result, or determine
 the security policy of the system under test.
 
 Evidence represents the observation produced by a test execution.
+
+For TC-003, regression evidence is generated from the executed regression
+retest result. The Evidence Framework itself does not determine whether a
+security regression exists.
 
 ---
 
@@ -592,6 +693,9 @@ architecture.
 The test does not access the internal authorization implementation of the
 simulated ECU.
 
+TC-001 therefore provides the security property that is reused by the
+Phase-7 regression workflow.
+
 ---
 
 ## TC-002 in the Current Architecture
@@ -602,11 +706,12 @@ Phase 6 introduces:
 TC-002 — Message Validation
 ```
 
-TC-002 extends the existing security-test architecture without introducing a 
+TC-002 extends the existing security-test architecture without introducing a
 new communication layer.
 
 The test uses the same architectural path:
 
+```text
 TC-002
    |
    v
@@ -632,19 +737,175 @@ TestResult
    |
    v
 Evidence
+```
 
-TC-002 verifies message/request validation behavior through the existing 
+TC-002 verifies message/request validation behavior through the existing
 target abstraction.
 
 The security test does not access internal ECU implementation details.
 
-The expected behavior remains defined by the security-test specification 
+The expected behavior remains defined by the security-test specification
 and is evaluated independently from the concrete ECU implementation.
 
-TC-002 therefore reuses the architectural separation established in 
+TC-002 therefore reuses the architectural separation established in
 Phases 3, 4, and 5.
 
 No new communication layer is introduced by TC-002.
+
+---
+
+## TC-003 in the Current Architecture
+
+Phase 7 introduces:
+
+```text
+TC-003 — Regression Workflow
+```
+
+TC-003 extends the existing architecture by demonstrating a controlled
+regression lifecycle for the diagnostic authorization security property
+established by TC-001.
+
+TC-003 does not introduce a new security-test definition, target abstraction,
+communication layer, or regression execution engine.
+
+The workflow reuses the existing TC-001 `SecurityTestCase`:
+
+```text
+TC-003
+   |
+   v
+Existing TC-001 SecurityTestCase
+   |
+   v
+SecurityTestRunner
+   |
+   v
+ECUTarget
+   |
+   v
+ECUAdapter
+   |
+   v
+ECUSimulator
+   |
+   v
+ECUResponse
+   |
+   v
+TestResult
+   |
+   v
+EvidenceGenerator
+   |
+   v
+Regression Evidence
+```
+
+The regression lifecycle consists of two controlled target states.
+
+First, the vulnerable behavior reproduces the original modeled deviation:
+
+```text
+VULNERABLE
+authorization = false
+PROTECTED_OPERATION
+       |
+       v
+ACCESS_GRANTED
+```
+
+The original security expectation remains:
+
+```text
+Expected = ACCESS_DENIED
+Actual   = ACCESS_GRANTED
+Result   = FAIL
+```
+
+The failed security result demonstrates that the original security condition
+is correctly detected.
+
+Second, the same unauthorized condition is executed against the secure
+simulator:
+
+```text
+SECURE
+authorization = false
+PROTECTED_OPERATION
+       |
+       v
+ACCESS_DENIED
+```
+
+The regression retest therefore produces:
+
+```text
+Expected = ACCESS_DENIED
+Actual   = ACCESS_DENIED
+Result   = PASS
+```
+
+The resulting `TestResult` is used to generate and validate regression
+evidence.
+
+The authorized behavior is also verified to ensure that the secure behavior
+does not remove the intended authorized operation:
+
+```text
+authorization = true
+PROTECTED_OPERATION
+       |
+       v
+ACCESS_GRANTED
+```
+
+TC-003 therefore verifies both the restored security property and the
+preservation of the authorized behavior.
+
+---
+
+## Security Test Result vs. Test Framework Result
+
+The TC-003 lifecycle demonstration distinguishes between the security test
+result and the pytest test result.
+
+For the controlled vulnerable behavior:
+
+```text
+SecurityTestCase expected: ACCESS_DENIED
+ECUSimulator actual:       ACCESS_GRANTED
+TestResult.passed:         False
+```
+
+The pytest test passes because it asserts that this deviation is correctly
+detected.
+
+Therefore:
+
+```text
+pytest PASS
+```
+
+does not mean:
+
+```text
+SecurityTestResult PASS
+```
+
+for the vulnerable-state demonstration.
+
+For the secure regression retest, both results are positive:
+
+```text
+SecurityTestCase expected: ACCESS_DENIED
+ECUSimulator actual:       ACCESS_DENIED
+TestResult.passed:         True
+pytest test:               PASS
+```
+
+This distinction is required for a correct interpretation of the Phase-7
+test lifecycle.
 
 ---
 
@@ -690,13 +951,35 @@ interface instead of directly calling ECU implementation details.
 
 The simulated ECU validates incoming requests.
 
+The current request validation distinguishes between malformed requests,
+unsupported operations, and valid operations that violate request or state
+constraints.
+
+A malformed or missing operation results in:
+
+```text
+Invalid or Missing Operation
+       |
+       v
+INVALID_REQUEST
+```
+
 An unsupported operation results in:
 
 ```text
 Unknown Operation
        |
        v
-INVALID_REQUEST
+UNSUPPORTED_OPERATION
+```
+
+A valid request that violates parameter or ECU-state constraints results in:
+
+```text
+Invalid Parameter or ECU State
+       |
+       v
+REQUEST_REJECTED
 ```
 
 Invalid request handling is part of the ECU simulator.
@@ -714,9 +997,9 @@ Deterministic behavior is a core requirement of the current architecture.
 
 For the same:
 
-* security mode
-* authorization state
-* request
+- security mode
+- authorization state
+- request
 
 the simulator produces the same response.
 
@@ -725,17 +1008,21 @@ makes test results reproducible.
 
 The current architecture does not depend on:
 
-* physical hardware
-* vehicle networks
-* external services
-* network access
-* random test data
+- physical hardware
+- vehicle networks
+- external services
+- network access
+- random test data
 
 The Evidence Framework generates a runtime timestamp. The timestamp is
 therefore expected to differ between executions.
 
 The remaining evidence fields are derived from the test execution and target
 state.
+
+The Phase-7 regression workflow remains deterministic because the vulnerable
+and secure target states are explicitly configured and the same defined
+security condition is evaluated through the existing execution architecture.
 
 ---
 
@@ -779,11 +1066,15 @@ The Evidence Framework also does not access internal ECU state.
 
 This separation provides clear boundaries between:
 
-* what is being tested
-* how the test is executed
-* how the target behaves
-* how the result is evaluated
-* how the observation is recorded
+- what is being tested
+- how the test is executed
+- how the target behaves
+- how the result is evaluated
+- how the observation is recorded
+
+The TC-003 regression workflow follows the same separation. Regression
+evaluation operates on the executed test result and does not require direct
+access to internal ECU implementation details.
 
 ---
 
@@ -793,13 +1084,13 @@ The current implementation is completely local and simulated.
 
 It does not provide:
 
-* real CAN communication
-* real UDS communication
-* physical ECU access
-* vehicle-network communication
-* production-system testing
-* OEM-system integration
-* real penetration testing
+- real CAN communication
+- real UDS communication
+- physical ECU access
+- vehicle-network communication
+- production-system testing
+- OEM-system integration
+- real penetration testing
 
 The `ECUTarget` abstraction provides a software boundary for target
 interaction, but no real-world communication adapter is currently implemented.
@@ -831,7 +1122,7 @@ Conceptually:
                          SecurityTestRunner
                                 |
                                 v
-                        Evidence Framework
+                         Evidence Framework
 ```
 
 This diagram represents an architectural possibility, not a current
@@ -847,6 +1138,52 @@ model.
 
 ---
 
+## Phase Boundaries
+
+Phase 6 includes TC-002 Message Validation in addition to the previously
+verified TC-001 Diagnostic Authorization test.
+
+Phase 7 adds the TC-003 Regression Workflow verification.
+
+The Phase-7 implementation is limited to the diagnostic authorization
+security property represented by TC-001.
+
+It provides:
+
+```text
+Controlled vulnerable-state reproduction
+        |
+        v
+Secure retest
+        |
+        v
+Expected-versus-actual evaluation
+        |
+        v
+Regression evidence generation
+        |
+        v
+Evidence validation
+        |
+        v
+Authorized-behavior verification
+```
+
+The architecture does not yet provide:
+
+```text
+Generalized finding management
+Automatic finding ingestion
+Automatic regression-test generation
+Historical result comparison
+Generalized regression orchestration
+CI/CD integration
+```
+
+These capabilities remain outside the current architecture.
+
+---
+
 ## Phase History
 
 ### Phase 1 — Repository Foundation
@@ -855,13 +1192,13 @@ Phase 1 established the project and development foundation.
 
 It introduced:
 
-* Python project configuration
-* pytest-based verification
-* repository structure
-* documentation structure
-* project scope
-* initial architectural decisions
-* deterministic local development environment
+- Python project configuration
+- pytest-based verification
+- repository structure
+- documentation structure
+- project scope
+- initial architectural decisions
+- deterministic local development environment
 
 ### Phase 2 — ECU Simulation
 
@@ -869,13 +1206,13 @@ Phase 2 implemented the deterministic simulated ECU.
 
 It introduced:
 
-* secure mode
-* vulnerable mode
-* authorization state
-* protected operation handling
-* request validation
-* deterministic response statuses
-* structured ECU responses
+- secure mode
+- vulnerable mode
+- authorization state
+- protected operation handling
+- request validation
+- deterministic response statuses
+- structured ECU responses
 
 ### Phase 3 — Security Test Architecture
 
@@ -883,11 +1220,11 @@ Phase 3 separated security-test execution from the simulated ECU.
 
 It introduced:
 
-* `SecurityTestCase`
-* `SecurityTestRunner`
-* `TestResult`
-* `ECUTarget`
-* `ECUAdapter`
+- `SecurityTestCase`
+- `SecurityTestRunner`
+- `TestResult`
+- `ECUTarget`
+- `ECUAdapter`
 
 The resulting architecture established the target boundary used by later
 security tests.
@@ -898,13 +1235,13 @@ Phase 4 introduced structured evidence generation.
 
 It added:
 
-* the Evidence model
-* mandatory evidence fields
-* evidence validation
-* `PASS` / `FAIL` semantics
-* runtime timestamps
-* JSON serialization
-* evidence generation from `TestResult`
+- the Evidence model
+- mandatory evidence fields
+- evidence validation
+- `PASS` / `FAIL` semantics
+- runtime timestamps
+- JSON serialization
+- evidence generation from `TestResult`
 
 The Evidence Framework was deliberately kept separate from the ECU and Test
 Runner.
@@ -923,10 +1260,11 @@ Framework.
 No new communication layer was required.
 
 The test evaluates the authorization behavior of the simulated ECU and
-provides the basis for the subsequent finding, fix, retest, and regression
-workflow planned for later phases.
+provides the security property used by the subsequent regression workflow.
 
-### Phase 6 introduced the second dedicated security test case:
+### Phase 6 — TC-002 Message Validation
+
+Phase 6 introduced the second dedicated security test case:
 
 ```text
 TC-002 — Message Validation
@@ -934,11 +1272,86 @@ TC-002 — Message Validation
 
 TC-002 reuses the existing security-test architecture and Evidence Framework.
 
-The test validates message/request handling through the existing target abstraction 
-and does not introduce real automotive communication.
+The test validates message/request handling through the existing target
+abstraction and does not introduce real automotive communication.
 
-Phase 6 therefore extends the security-test coverage without changing the fundamental 
-architectural boundaries established in earlier phases.
+Phase 6 therefore extends the security-test coverage without changing the
+fundamental architectural boundaries established in earlier phases.
+
+### Phase 7 — TC-003 Regression Workflow
+
+Phase 7 introduces the controlled regression workflow:
+
+```text
+TC-003 — Regression Workflow
+```
+
+TC-003 does not introduce a new `SecurityTestCase`.
+
+Instead, it reuses the TC-001 security-test definition and verifies the
+regression lifecycle for the diagnostic authorization security property.
+
+The workflow includes:
+
+- controlled reproduction of the original vulnerable behavior
+- preservation of the original security expectation
+- secure retest of the same unauthorized condition
+- expected-versus-actual evaluation through `SecurityTestRunner`
+- generation of regression evidence from the executed result
+- validation of the generated evidence
+- verification that authorized behavior remains available
+
+Phase 7 therefore extends the existing test and evidence architecture without
+introducing a separate communication or target layer.
+
+The implementation is a controlled local regression workflow. Generalized
+finding management, historical regression comparison, regression orchestration,
+and CI/CD remain outside the current architecture.
+
+---
+
+## Verification
+
+The current repository has been locally verified with:
+
+```text
+pytest -q
+```
+
+Result:
+
+```text
+38 passed
+```
+
+The dedicated TC-003 regression workflow has also been verified with:
+
+```text
+pytest -q 04_tests/test_security_regression.py
+```
+
+Result:
+
+```text
+4 passed
+```
+
+The current test distribution is:
+
+```text
+ECU Simulation Tests:              6
+Evidence Framework Tests:         14
+Foundation Tests:                  1
+Security Test Architecture:       4
+TC-001 Diagnostic Authorization:  4
+TC-002 Message Validation:        5
+TC-003 Regression Workflow:       4
+-----------------------------------
+Total:                            38
+```
+
+The TC-003 tests reuse the existing test architecture and do not introduce a
+second target or execution abstraction.
 
 ---
 
@@ -946,35 +1359,39 @@ architectural boundaries established in earlier phases.
 
 The current implementation provides:
 
-* deterministic ECU simulation
-* secure and vulnerable security modes
-* authorization handling
-* protected operation handling
-* request validation
-* target abstraction
-* security-test execution
-* expected-versus-actual evaluation
-* structured test results
-* structured evidence
-* evidence validation
-* JSON serialization
-* TC-001 Diagnostic Authorization
-* TC-002 Message Validation
+- deterministic ECU simulation
+- secure and vulnerable security modes
+- authorization handling
+- protected operation handling
+- request validation
+- target abstraction
+- security-test execution
+- expected-versus-actual evaluation
+- structured test results
+- structured evidence
+- evidence validation
+- JSON serialization
+- TC-001 Diagnostic Authorization
+- TC-002 Message Validation
+- TC-003 Regression Workflow
+- controlled regression evidence generation
+- authorized-behavior verification during the TC-003 regression workflow
 
 The following capabilities are outside the current implementation:
 
-* real CAN communication
-* real UDS communication
-* physical ECU communication
-* vehicle-network communication
-* production-system testing
-* OEM-system integration
-* formal vulnerability management
-* severity management
-* CVSS calculation
-* generalized security-finding management
-* complete regression orchestration
-* CI/CD integration
+- real CAN communication
+- real UDS communication
+- physical ECU communication
+- vehicle-network communication
+- production-system testing
+- OEM-system integration
+- formal vulnerability management
+- severity management
+- CVSS calculation
+- generalized security-finding management
+- historical regression comparison
+- generalized regression orchestration
+- CI/CD integration
 
 These capabilities are reserved for later project phases.
 
@@ -1016,13 +1433,28 @@ the test case.
 The expected result must not be changed simply to make an insecure
 implementation pass.
 
+This principle is also preserved by TC-003. The original TC-001 expectation
+remains `ACCESS_DENIED` throughout the vulnerable-state reproduction and the
+secure regression retest.
+
 ### 5. Keep the Simulation Deterministic
 
 Equivalent input and target state must produce equivalent target behavior.
 
 This is required for reproducible local security testing.
 
-### 6. Add Future Workflow Stages Only When Their Prerequisites Exist
+### 6. Reuse Existing Architectural Boundaries for Regression Testing
+
+The Phase-7 regression workflow reuses the existing security-test and target
+architecture.
+
+It does not introduce a separate communication path, target abstraction, or
+test-result mechanism solely for regression testing.
+
+The regression workflow operates on the existing test definition, target
+behavior, `TestResult`, and Evidence Framework.
+
+### 7. Add Future Workflow Stages Only When Their Prerequisites Exist
 
 The project is developed incrementally:
 
@@ -1042,13 +1474,13 @@ TC-001
 TC-002
        |
        v
+TC-003 Regression Workflow
+       |
+       v
 Future Security Finding
        |
        v
-Future Retest
-       |
-       v
-Future Regression
+Future Generalized Regression
        |
        v
 Future CI/CD
@@ -1065,8 +1497,9 @@ The architecture is intentionally smaller than a real automotive cybersecurity
 test environment.
 
 The purpose of the project is to demonstrate how a security requirement can be
-translated into a reproducible security test and how the resulting execution
-can be evaluated and recorded as structured evidence.
+translated into a reproducible security test, how the resulting execution can
+be evaluated and recorded as structured evidence, and how a defined security
+property can be retested through a controlled regression workflow.
 
 The project does not attempt to reproduce a complete automotive
 communication stack, production ECU, or real vehicle environment.
@@ -1078,3 +1511,8 @@ local, and understandable.
 The long-term architecture can build additional security workflow stages on
 top of these stable boundaries without changing the basic responsibilities of
 the existing components.
+
+The current Phase-7 regression implementation is intentionally limited to the
+diagnostic authorization security property established by TC-001. It does
+not constitute a generalized security finding or regression management
+platform.

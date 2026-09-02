@@ -20,9 +20,16 @@ The methodology separates:
 
 The methodology is implemented incrementally across the project phases.
 
-The current implementation covers the security-test and evidence workflow through Phase 6 — TC-002 Message Validation.
+The current implementation covers the security-test and evidence workflow
+through Phase 7 — TC-003 Regression Workflow.
 
-Later phases extend this workflow into security finding management, remediation, retesting, regression testing, and CI/CD.
+Phase 7 extends the existing security-test and evidence workflow with a
+controlled regression lifecycle for the diagnostic authorization security
+property established by TC-001.
+
+Generalized security finding management, remediation tracking, historical
+regression comparison, regression orchestration, and CI/CD remain future
+capabilities.
 
 ---
 
@@ -62,7 +69,7 @@ Regression
 Automated Regression
         ↓
 CI/CD
-```
+`````
 
 Not all stages are currently implemented.
 
@@ -84,7 +91,18 @@ Test Execution
 Expected vs Actual
         ↓
 Evidence
+        ↓
+Controlled Security-Relevant Deviation
+        ↓
+Secure Retest
+        ↓
+Regression Evaluation
+        ↓
+Regression Evidence
 ```
+
+Phase 7 implements this extension only for the diagnostic authorization
+security property represented by TC-001.
 
 The distinction between implemented and planned capabilities is maintained throughout this document.
 
@@ -191,6 +209,66 @@ The current simulation therefore avoids dependencies on:
 
 Execution timestamps are generated dynamically and are treated as execution metadata rather than as part of the security decision.
 
+## Regression Methodology
+
+A regression test is created by preserving the security property and
+reproducing the relevant test condition after a security-relevant change.
+
+The Phase-7 implementation follows this controlled sequence:
+
+```text
+Security Property
+        ↓
+Existing Test Condition
+        ↓
+Controlled Vulnerable Behavior
+        ↓
+Secure Retest
+        ↓
+Expected vs Actual
+        ↓
+Regression Result
+        ↓
+Evidence
+```
+
+The expected security behavior remains independent of the observed target
+behavior.
+
+For the TC-001 authorization property:
+
+```text
+Unauthorized protected operation
+        ↓
+Expected: ACCESS_DENIED
+```
+
+The controlled vulnerable mode demonstrates the modeled deviation:
+
+```text
+VULNERABLE
+authorization = false
+        ↓
+ACCESS_GRANTED
+```
+
+The secure retest verifies the intended behavior:
+
+```text
+SECURE
+authorization = false
+        ↓
+ACCESS_DENIED
+```
+
+The regression result is determined by the existing `SecurityTestRunner` and
+the expected-versus-actual comparison.
+
+The Evidence Framework then records the completed execution.
+
+The regression methodology therefore reuses the existing test and evidence
+architecture instead of introducing a separate regression execution mechanism.
+
 ---
 
 # Current Implemented Methodology
@@ -220,6 +298,7 @@ Unauthorized access:
 
 ```text
 Authorization = false
+
 +
 PROTECTED_OPERATION
         ↓
@@ -230,6 +309,7 @@ Authorized access:
 
 ```text
 Authorization = true
+
 +
 PROTECTED_OPERATION
         ↓
@@ -348,7 +428,9 @@ For TC-001:
 
 ```text
 If authorization is not correctly enforced,
+
 an unauthorized requester may be able to execute
+
 the protected operation.
 ```
 
@@ -356,6 +438,7 @@ The hypothesis is tested by submitting the protected operation while authorizati
 
 ```text
 authorization = false
+
 PROTECTED_OPERATION
 ```
 
@@ -446,15 +529,19 @@ The TC-002 validation flow is:
 
 ```text
 TC-002 — Message Validation
+
         ↓
+
 Request Validation
+
         ↓
-┌─────────────────────────────┐
-│ Invalid request structure   │ → INVALID_REQUEST
-│ Invalid parameter data      │ → REQUEST_REJECTED
-│ Unsupported operation       │ → UNSUPPORTED_OPERATION
-│ Blocked ECU state           │ → REQUEST_REJECTED
-└─────────────────────────────┘
+
++-----------------------------+
+| Invalid request structure   | → INVALID_REQUEST
+| Invalid parameter data      | → REQUEST_REJECTED
+| Unsupported operation       | → UNSUPPORTED_OPERATION
+| Blocked ECU state            | → REQUEST_REJECTED
++-----------------------------+
 ```
 
 TC-002 therefore distinguishes between malformed or invalid request data, unsupported operations, and requests that are rejected because of parameter or ECU-state restrictions.
@@ -462,15 +549,21 @@ TC-002 therefore distinguishes between malformed or invalid request data, unsupp
 The expected response semantics are:
 
 ```text
-Condition                                      Expected response
+Condition                                  Expected response
 
-Request is not a valid mapping                 INVALID_REQUEST
-Operation is missing or empty                  INVALID_REQUEST
-Parameters are not a valid mapping             INVALID_REQUEST
-Parameter value is outside 0..255              REQUEST_REJECTED
-Parameter value is a boolean                   REQUEST_REJECTED
-Operation is not supported                     UNSUPPORTED_OPERATION
-ECU is blocked                                 REQUEST_REJECTED
+Request is not a valid mapping               INVALID_REQUEST
+
+Operation is missing or empty                INVALID_REQUEST
+
+Parameters are not a valid mapping           INVALID_REQUEST
+
+Parameter value is outside 0..255            REQUEST_REJECTED
+
+Parameter value is a boolean                 REQUEST_REJECTED
+
+Operation is not supported                   UNSUPPORTED_OPERATION
+
+ECU is blocked                               REQUEST_REJECTED
 ```
 
 The test verifies these externally observable response semantics without depending on the ECU simulator's internal validation implementation.
@@ -651,6 +744,48 @@ Evidence records what happened during the test execution.
 
 It does not modify the target, expected result, or test execution.
 
+## Security Test Result vs. Test Framework Result
+
+The TC-003 lifecycle demonstration distinguishes between the security test
+result and the pytest test result.
+
+For the controlled vulnerable behavior:
+
+```text
+SecurityTestCase expected: ACCESS_DENIED
+ECUSimulator actual:       ACCESS_GRANTED
+TestResult.passed:         False
+```
+
+The pytest test passes because it asserts that this deviation is correctly
+detected.
+
+Therefore:
+
+```text
+pytest PASS
+```
+
+does not mean:
+
+```text
+SecurityTestResult PASS
+```
+
+for the vulnerable-state demonstration.
+
+For the secure regression retest, both results are positive:
+
+```text
+SecurityTestCase expected: ACCESS_DENIED
+ECUSimulator actual:       ACCESS_DENIED
+TestResult.passed:         True
+pytest test:               PASS
+```
+
+This distinction is required for a correct interpretation of the Phase-7
+test lifecycle.
+
 ---
 
 # TC-001 Methodology Example
@@ -683,6 +818,7 @@ Authorization Check
 
 ```text
 An unauthorized requester may execute the protected operation
+
 if authorization is not correctly enforced.
 ```
 
@@ -690,6 +826,7 @@ if authorization is not correctly enforced.
 
 ```text
 authorization = false
+
 ECU mode = secure or vulnerable
 ```
 
@@ -723,13 +860,21 @@ FAIL
 
 ```text
 Test ID
+
 Target
+
 Preconditions
+
 Input
+
 Expected
+
 Actual
+
 Result
+
 Timestamp
+
 Notes
 ```
 
@@ -737,6 +882,7 @@ The authorized scenario additionally verifies:
 
 ```text
 authorization = true
+
 PROTECTED_OPERATION
         ↓
 ACCESS_GRANTED
@@ -759,6 +905,7 @@ operation processing.
 
 ```text
 Malformed, unsupported, or impermissible diagnostic input may reach
+
 security-relevant processing.
 ```
 
@@ -776,6 +923,7 @@ Operation Processing
 
 ```text
 An invalid requester may reach operation processing if request validation
+
 is not correctly enforced.
 ```
 
@@ -797,17 +945,11 @@ where required by the test scenario.
 
 ```text
 Invalid request structure
-
 or
-
 Unsupported operation
-
 or
-
 Invalid parameter data
-
 or
-
 Protected operation while ECU is blocked
 ```
 
@@ -829,6 +971,7 @@ Valid parameter boundary values are separately verified:
 
 ```text
 value = 0   -> ACCESS_GRANTED
+
 value = 255 -> ACCESS_GRANTED
 ```
 
@@ -858,15 +1001,175 @@ TC-002 uses the existing Evidence Framework and records the same structured exec
 
 ```text
 Test ID
+
 Target
+
 Preconditions
+
 Input
+
 Expected
+
 Actual
+
 Result
+
 Timestamp
+
 Notes
 ```
+
+---
+
+# TC-003 Methodology Example
+
+TC-003 applies the implemented methodology to the controlled regression of the
+diagnostic authorization security property established by TC-001.
+
+TC-003 does not introduce a new dedicated `SecurityTestCase` with
+`test_id = "TC-003"`.
+
+The regression workflow is implemented in:
+
+```text
+04_tests/test_security_regression.py
+```
+
+The module reuses the existing TC-001 `SecurityTestCase`.
+
+The relationship is:
+
+```text
+TC-003
+  |
+  | defines / verifies the regression workflow
+  v
+test_security_regression.py
+  |
+  | reuses
+  v
+TC-001 SecurityTestCase
+  |
+  +-- test_id = "TC-001"
+  |
+  +-- expected unauthorized behavior = ACCESS_DENIED
+```
+
+## Security Property
+
+```text
+Protected diagnostic operations shall require authorization.
+```
+
+## Existing Test Condition
+
+```text
+authorization = false
+
+PROTECTED_OPERATION
+```
+
+The expected security behavior remains:
+
+```text
+ACCESS_DENIED
+```
+
+## Controlled Vulnerable-State Reproduction
+
+The vulnerable mode represents the modeled pre-fix behavior in a controlled
+simulation.
+
+```text
+VULNERABLE
+authorization = false
+        ↓
+ACCESS_GRANTED
+```
+
+The resulting security test outcome is:
+
+```text
+Expected = ACCESS_DENIED
+Actual   = ACCESS_GRANTED
+Result   = FAIL
+```
+
+The `FAIL` is intentional for this lifecycle step because TC-003 verifies that
+the original security deviation can be reproduced and detected.
+
+## Secure Retest
+
+The same unauthorized condition is then executed against the secure simulator
+mode:
+
+```text
+SECURE
+authorization = false
+        ↓
+ACCESS_DENIED
+```
+
+The resulting security test outcome is:
+
+```text
+Expected = ACCESS_DENIED
+Actual   = ACCESS_DENIED
+Result   = PASS
+```
+
+This verifies that the diagnostic authorization security property is restored
+in the controlled secure state.
+
+## Authorized-Behavior Verification
+
+TC-003 additionally verifies that valid authorized access remains available:
+
+```text
+SECURE
+authorization = true
+        ↓
+ACCESS_GRANTED
+```
+
+The resulting security test outcome is:
+
+```text
+Expected = ACCESS_GRANTED
+Actual   = ACCESS_GRANTED
+Result   = PASS
+```
+
+This ensures that the regression verification does not only check rejection of
+unauthorized access but also confirms preservation of authorized behavior.
+
+## Regression Evidence
+
+The regression evidence is generated from the executed `TestResult`.
+
+The workflow is:
+
+```text
+Controlled Vulnerable Behavior
+        ↓
+Original Security Condition
+        ↓
+Secure Retest
+        ↓
+Expected vs Actual
+        ↓
+Regression Evidence
+        ↓
+Evidence Validation
+        ↓
+Authorized Behavior Verification
+```
+
+The Evidence Framework records the executed regression result and validates the
+resulting Evidence object.
+
+TC-003 does not introduce a separate evidence model or a separate execution
+mechanism.
 
 ---
 
@@ -897,6 +1200,9 @@ Evidence
 This allows a test execution to be related to the security property it was designed to verify.
 
 The current implementation provides this relationship for the implemented security tests, including TC-001 and TC-002, at the test and evidence level.
+
+For TC-003, the existing TC-001 security property is reused to provide a
+controlled regression workflow.
 
 More advanced requirement identifiers, finding identifiers, and automated traceability are planned for later phases.
 
@@ -943,6 +1249,8 @@ TC-001 Security Test
         ↓
 TC-002 Security Test
         ↓
+TC-003 Regression Workflow Tests
+        ↓
 Complete pytest Suite
 ```
 
@@ -954,27 +1262,28 @@ The test infrastructure is therefore treated as software that also requires veri
 
 # Future Security Lifecycle
 
-The long-term methodology extends the current test and evidence workflow into a complete security lifecycle.
+The project currently demonstrates a controlled retest and regression
+workflow through Phase 7.
 
-The target workflow is:
+The following capabilities remain future work:
 
 ```text
-Security-Relevant Observation
+Generalized Security Finding Management
         ↓
-Security Finding
+Root Cause Management
         ↓
-Root Cause
+Remediation Tracking
         ↓
-Recommended Fix
+Historical Regression Comparison
         ↓
-Implemented Fix
+Generalized Regression Orchestration
         ↓
-Retest
-        ↓
-Regression
+CI/CD
 ```
 
-These stages are part of the target methodology but are not yet implemented as a complete generalized workflow in the current phase.
+Phase 7 therefore provides a verified regression workflow for the defined
+TC-001 security property, but not a generalized security finding and
+regression management platform.
 
 ---
 
@@ -1003,6 +1312,7 @@ For the controlled vulnerable TC-001 scenario, the modeled root cause is:
 
 ```text
 The authorization state is not enforced before execution
+
 of the protected operation.
 ```
 
@@ -1078,6 +1388,7 @@ For TC-001:
 
 ```text
 authorization = false
+
 PROTECTED_OPERATION
         ↓
 ACCESS_DENIED
@@ -1087,6 +1398,7 @@ and:
 
 ```text
 authorization = true
+
 PROTECTED_OPERATION
         ↓
 ACCESS_GRANTED
@@ -1094,7 +1406,10 @@ ACCESS_GRANTED
 
 The purpose of the retest is to verify that the security property is now satisfied.
 
-The generalized project-level retest workflow belongs to a later phase.
+Phase 7 implements a controlled retest as part of TC-003 for the diagnostic
+authorization security property.
+
+A generalized project-level retest workflow remains future work.
 
 ---
 
@@ -1104,23 +1419,25 @@ Retesting verifies the specific corrected security behavior.
 
 Regression testing verifies that previously established security behavior remains correct after later changes.
 
-The target workflow is:
+The current Phase-7 regression workflow is:
 
 ```text
-Code Change
-      ↓
-Regression Suite
-      ↓
-Existing Security Tests
-      ↓
-Results
-      ↓
-Evidence
+Original Security Condition
+        ↓
+Controlled Vulnerable-State Reproduction
+        ↓
+Secure Retest
+        ↓
+Regression Evaluation
+        ↓
+Regression Evidence
 ```
 
-The current project does not yet implement a complete regression orchestration layer.
+This workflow is implemented specifically for the diagnostic authorization
+security property represented by TC-001.
 
-Regression capabilities are introduced in later project phases.
+The project does not yet implement a generalized regression orchestration
+layer or historical result comparison.
 
 ---
 
@@ -1138,9 +1455,13 @@ Test Results
 Evidence
 ```
 
-The regression suite will provide repeatable execution of established security tests.
+Phase 7 provides a verified, specific regression workflow through TC-003.
 
-The current implementation verifies the implemented security tests through pytest, but the dedicated regression suite and regression workflow belong to later project phases.
+The project does not yet provide a generalized automated regression suite
+covering security findings and historical regression results.
+
+A dedicated generalized pytest regression suite belongs to a later project
+phase.
 
 ---
 
@@ -1175,52 +1496,64 @@ The methodology is developed incrementally together with the project.
 ```text
 Phase 0
 Project Definition
+
         ↓
 Phase 1
 Repository Foundation
+
         ↓
 Phase 2
 ECU Simulation
+
         ↓
 Phase 3
 Security Test Architecture
+
         ↓
 Phase 4
 Evidence Framework
+
         ↓
 Phase 5
 TC-001
+
         ↓
 Phase 6
 TC-002
+
         ↓
 Phase 7
-Finding → Root Cause → Fix → Retest → Regression
+TC-003 Regression Workflow
+
         ↓
 Phase 8
-SEC-001 / SEC-002
+Example Findings
+
         ↓
 Phase 9
 pytest Regression Suite
+
         ↓
 Phase 10
 GitHub Actions / CI/CD
+
         ↓
 Phase 11
 End-to-End Assessment
+
         ↓
 Phase 12
 Professional Documentation
+
         ↓
 Phase 13
 Technical Review
+
         ↓
 Phase 14
 Recruiter / Interview Review
 ```
-
 Each phase adds a concrete capability to the overall methodology.
-
 The project does not treat planned stages as completed functionality.
 
 ---
@@ -1266,6 +1599,14 @@ Test Execution
 Expected vs Actual
         ↓
 Evidence
+        ↓
+Controlled Security-Relevant Deviation
+        ↓
+Secure Retest
+        ↓
+Regression Evaluation
+        ↓
+Regression Evidence
 ```
 
 Implemented capabilities include:
@@ -1281,6 +1622,7 @@ Implemented capabilities include:
 * JSON serialization
 * TC-001 Diagnostic Authorization
 * TC-002 Message Validation
+* TC-003 Regression Workflow
 * local pytest verification
 
 The following capabilities belong to later project phases:
@@ -1289,7 +1631,8 @@ The following capabilities belong to later project phases:
 * root-cause management
 * remediation tracking
 * generalized retest workflow
-* complete regression orchestration
+* historical regression comparison
+* generalized regression orchestration
 * SEC-001 / SEC-002 example findings
 * dedicated pytest regression suite
 * CI/CD integration
@@ -1329,3 +1672,5 @@ Only the stages implemented in the current project phase are treated as verified
 The methodology keeps the security requirement, system under test, test execution, evidence, and later security-lifecycle activities separate.
 
 This separation provides a controlled basis for extending individual security tests into a reproducible security regression workflow and, ultimately, an automated CI/CD process.
+
+````

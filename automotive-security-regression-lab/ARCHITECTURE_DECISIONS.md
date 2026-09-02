@@ -1,532 +1,462 @@
 # Architecture Decisions
 
-This document records the architecture decisions for the Automotive Security
-Regression Lab.
+This document records the architecture decisions for the Automotive Security Regression Lab.
 
-The decisions documented here describe intentional architectural constraints
-and design choices made during the implementation of the project.
+The decisions documented here describe intentional architecture constraints,
+design choices, and implementation boundaries.
 
-Accepted decisions must remain consistent with the project masterprompt and
-must not be silently contradicted by later phases.
+Accepted architecture decisions must remain consistent with the project
+masterprompt and must not be silently contradicted by later implementation
+or documentation changes.
 
----
+## ADR-001 — ECU fully simulated
 
-## ADR-001 — The ECU is fully simulated
-
-**Status:** Accepted  
-**Phase:** 1  
+**Status:** Accepted
+**Phase:** 1
 **Source:** [MASTER]
 
-The project uses a simulated ECU rather than a real vehicle ECU or productive
-automotive system.
+The ECU used by the Automotive Security Regression Lab is fully simulated.
+
+The project does not communicate with a real ECU or a productive automotive
+system.
 
 **Rationale:**
 
-The project is explicitly defined as a controlled, fully simulated
-automotive security-testing laboratory. This keeps the environment
-reproducible and avoids interaction with real vehicles or productive
-systems.
+A simulated ECU provides a controlled, deterministic, reproducible, and safe
+environment for developing and validating the security-test architecture.
 
----
+**Consequences:**
 
-## ADR-002 — Security tests are intended to be reproducible and automatable
+- No real vehicle or ECU communication is required.
+- Test execution is deterministic and locally reproducible.
+- The project can demonstrate automotive security-test concepts without
+  interacting with productive systems.
+- Findings and test results represent the defined simulation behavior and
+  must not be interpreted as evidence from a real vehicle.
 
-**Status:** Accepted  
-**Phase:** 1  
+## ADR-002 — Security tests reproducible and automatable
+
+**Status:** Accepted
+**Phase:** 1
 **Source:** [MASTER]
 
-The security-testing workflow is designed around repeatable automated
-execution and evidence-oriented verification.
+Security tests shall be reproducible and automatable.
+
+The test architecture therefore supports repeatable execution, deterministic
+test behavior, structured results, and machine-readable test information.
 
 **Rationale:**
 
-Reproducibility and automation are explicit project objectives and provide
-the foundation for later regression-testing and continuous verification
-activities.
+Reproducibility is required to verify security requirements consistently and
+to support later automated regression testing.
 
-The architecture therefore favors deterministic behavior, structured test
-results, and machine-readable test information.
+**Consequences:**
 
----
+- Security tests can be executed repeatedly.
+- Test outcomes can be evaluated programmatically.
+- Structured test results provide a stable basis for evidence generation.
+- Future CI/CD integration can build on the existing test architecture.
 
-## ADR-003 — No interaction with real vehicles or productive systems
+## ADR-003 — No real vehicles or productive systems
 
-**Status:** Accepted  
-**Phase:** 1  
+**Status:** Accepted
+**Phase:** 1
 **Source:** [MASTER]
 
-The project does not interact with real vehicles, ECUs, OEM systems,
-customer data, or productive systems.
+The project does not use real vehicles, real ECUs, OEM systems, customer
+systems, production environments, or production data.
 
 **Rationale:**
 
-This is an explicit project scope constraint.
+The project is intended as a controlled security-testing laboratory and
+portfolio implementation.
 
-The simulated environment is sufficient for demonstrating the intended
-security-testing workflow while keeping execution controlled and
-reproducible.
+**Consequences:**
 
----
+- All demonstrated security behavior is simulated.
+- No productive automotive infrastructure is required.
+- The architecture can be executed locally without external vehicle
+  communication.
 
-## ADR-004 — Test logic is separated from the ECU implementation
+## ADR-004 — Test logic separated from ECU implementation
 
-**Status:** Accepted  
-**Phase:** 1  
-
+**Status:** Accepted
+**Phase:** 1
 **Source:** [MASTER]
 
-The architecture separates security test cases and test execution from the
-simulated ECU through an ECU target abstraction and adapter boundary.
+Security-test logic and ECU implementation are separated.
+
+The security-test architecture communicates with the simulated ECU through
+an ECU target abstraction and adapter boundary.
+
+The ECU is responsible for modeled system behavior.
+
+The test architecture is responsible for test execution and evaluation.
 
 **Rationale:**
 
-The separation establishes a clear boundary between the security-test
-mechanism and the system under test.
+This separation prevents security-test logic from being directly coupled to
+the internal implementation of the simulated ECU.
 
-The ECU remains responsible for simulated system behavior, while the test
-architecture is responsible for executing and evaluating security tests.
+It also provides a stable architectural boundary for later evidence
+generation and regression workflows.
 
-This separation also provides a stable boundary for the Evidence Framework
-introduced in Phase 4.
+**Consequences:**
 
----
+- ECU behavior can evolve independently from test execution logic.
+- Security tests can use a stable target interface.
+- Evidence generation remains outside the ECU implementation.
 
-## ADR-005 — Phase 1 uses a minimal Python/pytest foundation
+## ADR-005 — Phase 1 minimal Python/pytest foundation
 
-**Status:** Accepted  
-**Phase:** 1  
+**Status:** Accepted
+**Phase:** 1
 **Source:** [MASTER] + [SOURCE]
 
-Phase 1 uses Python and pytest as the primary implementation and test
-foundation without adding unnecessary security-specific runtime
-dependencies.
+The initial project foundation uses Python and pytest.
+
+No unnecessary security runtime dependencies are introduced.
+
+The implementation uses the Python standard library and pytest where
+appropriate.
 
 **Rationale:**
 
-The project requires a simple, reproducible local test environment.
-Additional frameworks are not introduced unless a project requirement
-justifies them.
+The initial phase requires a small, deterministic, maintainable technical
+foundation.
 
-The implementation therefore favors the Python standard library and pytest
-for the core project functionality.
+**Consequences:**
 
----
+- The project remains lightweight.
+- Test execution is locally reproducible.
+- Additional dependencies can be introduced only when justified by later
+  requirements.
 
-## ADR-006 — ECU security behavior is deterministic and mode-controlled
+## ADR-006 — ECU security behavior deterministic and mode-controlled
 
-**Status:** Accepted  
-**Phase:** 2  
+**Status:** Accepted
+**Phase:** 2
 **Source:** [MASTER]
 
-The simulated ECU provides two explicit security modes:
+The simulated ECU provides deterministic security behavior through explicit
+security modes.
 
-- `secure`
-- `vulnerable`
+The supported modes are:
 
-In `secure` mode, the protected operation requires explicit authorization.
+```text
+SECURE
+VULNERABLE
+````
 
-In `vulnerable` mode, the protected operation is intentionally granted
+In secure mode, the protected operation requires authorization.
+
+In vulnerable mode, the protected operation is intentionally accessible
 without authorization.
 
 **Rationale:**
 
-The project requires a deterministic security target that can represent both
-intended secure behavior and a controlled vulnerable behavior for
-reproducible security testing.
+Explicit security modes allow secure and vulnerable behavior to be reproduced
+deterministically for security-test development.
 
-Explicit security modes make the simulated security behavior predictable
-and suitable for automated testing.
+**Consequences:**
 
----
+* Secure behavior can be tested independently.
+* Controlled vulnerable behavior can be reproduced.
+* The vulnerable mode is a simulation mechanism and does not represent a
+  real-world vulnerability.
 
-## ADR-007 — ECU responses use a structured deterministic response model
+## ADR-007 — ECU responses use a structured deterministic model
 
-**Status:** Accepted  
-**Phase:** 2  
+**Status:** Accepted
+**Phase:** 2
 **Source:** [MASTER]
 
-The simulated ECU returns a structured `ECUResponse` containing a
-deterministic response status and the corresponding operation.
+ECU responses are represented by the structured `ECUResponse` model.
 
-The response can be converted into a simple dictionary representation using
-`to_dict()`.
+The response contains deterministic status information and the related
+operation.
+
+The response can be converted to a dictionary using `to_dict()`.
 
 **Rationale:**
 
-A structured response model provides a stable interface between the
-simulated ECU and the test architecture.
+Structured responses provide a stable interface between ECU behavior,
+security-test execution, and result generation.
 
-Deterministic response values make test results reproducible and provide
-stable input for the test-result and evidence layers.
+**Consequences:**
 
----
+* Test results can evaluate explicit response values.
+* Response data can be used by later evidence generation.
+* Response serialization remains deterministic.
 
 ## ADR-008 — Requests are validated before security processing
 
-**Status:** Accepted  
-**Phase:** 2  
+**Status:** Accepted
+**Phase:** 2
 **Source:** [MASTER]
 
-The simulated ECU validates the request structure before applying the
-security policy.
+Incoming ECU requests are validated before security processing.
 
-Requests must provide a valid operation string. Only the defined
-`PROTECTED_OPERATION` is accepted. If optional `parameters` are provided,
-they must be represented as a mapping.
+The modeled validation behavior distinguishes malformed requests,
+unsupported operations, and rejected parameters.
 
-Malformed request structures result in `INVALID_REQUEST`.
+The current semantics are:
 
-A syntactically valid but unsupported operation results in
-`UNSUPPORTED_OPERATION`.
+```text
+Malformed request structure
+    → INVALID_REQUEST
 
-Parameter values are validated separately. Values outside the supported
-range result in `REQUEST_REJECTED`.
+Missing or invalid operation
+    → INVALID_REQUEST
+
+Valid but unsupported operation
+    → UNSUPPORTED_OPERATION
+
+Invalid parameter structure
+    → INVALID_REQUEST
+
+Parameter outside 0..255
+    → REQUEST_REJECTED
+```
 
 **Rationale:**
 
-Request validation provides a clear boundary between malformed input and
-security-policy decisions.
+Request validation establishes a clear boundary between malformed input,
+unsupported operations, and security or policy decisions.
 
-This keeps the simulator deterministic and prevents malformed requests from
-being interpreted as valid protected operations.
+**Consequences:**
 
-This distinction keeps malformed input, unsupported operations, and rejected
-parameter values semantically separate and provides deterministic response
-behavior for security-test cases.
----
+* Invalid request structures are rejected deterministically.
+* Unsupported operations are distinguishable from malformed requests.
+* Parameter constraints are explicitly testable.
 
-# Phase 4 — Evidence Framework
+## Phase 4 — Evidence Framework
 
-## ADR-009 — Security-test evidence is represented as a structured data model
+### ADR-009 — Security-test evidence uses a structured data model
 
-**Status:** Accepted  
-**Phase:** 4  
+**Status:** Accepted
+**Phase:** 4
 **Source:** [MASTER] + [INFERENCE]
 
-Security-test evidence is represented as a dedicated structured data model
-rather than as an unstructured log message or free-form text record.
+Security-test evidence is represented by a structured Evidence data model.
 
-The Phase-4 Evidence model contains:
+The model contains:
 
-- `test_id`
-- `timestamp`
-- `target`
-- `preconditions`
-- `input`
-- `expected`
-- `actual`
-- `result`
-- `notes`
+```text
+test_id
+timestamp
+target
+preconditions
+input
+expected
+actual
+result
+notes
+```
 
 **Rationale:**
 
-Evidence must allow a reviewer or an automated process to identify what was
-tested, against which target, under which conditions, with which input, what
-behavior was expected, what behavior was actually observed, and what result
-was obtained.
-
-A structured model provides explicit fields for these concepts and avoids
-relying on parsing conventions associated with unstructured log output.
-
-The model is intentionally small and focused on the observation of a test
-execution.
+A structured evidence model allows reviewers and automation to identify what
+was tested, against which target, under which conditions, with which input,
+and with which expected and actual result.
 
 **Consequences:**
 
 Positive:
 
-- Evidence has a stable machine-readable structure.
-- Required information is explicitly represented.
-- Evidence can be validated programmatically.
-- The structure can be extended with optional fields in later phases.
-- Evidence can be serialized for automation.
+* Evidence is machine-readable.
+* Evidence has a stable structure.
+* Evidence can be validated independently from the ECU.
+* The model can be extended when later phases require additional metadata.
 
 Negative:
 
-- The Evidence model must evolve if later phases require additional
-  execution metadata.
-- Backward compatibility may need to be considered when optional or new
-  fields are introduced.
+* Extensions must preserve compatibility with the existing evidence
+  structure where required.
+* The Evidence model does not provide security finding management.
 
-The Evidence model does not implement security finding management.
+### ADR-010 — Evidence is generated outside the ECU and remains separate from target logic
 
----
-
-## ADR-010 — Evidence is generated outside the ECU and remains separate from test-target logic
-
-**Status:** Accepted  
-**Phase:** 4  
+**Status:** Accepted
+**Phase:** 4
 **Source:** [MASTER] + [INFERENCE]
 
-The Evidence Framework is implemented outside the simulated ECU.
+The ECU does not create, validate, serialize, or manage Evidence.
 
-The ECU does not create, validate, serialize, or manage Evidence records.
+Evidence is generated by the security-test architecture after test execution.
 
-The intended execution flow is:
+The architectural flow is:
 
 ```text
 Security Test Case
         ↓
-Test Runner
+Security Test Runner
         ↓
 ECU Adapter
         ↓
 ECU Simulator
         ↓
-Response
+ECU Response
         ↓
 Test Result
         ↓
 Evidence
-````
-
-**Rationale:**
-
-The ECU is the simulated system under test and must remain independent of
-the mechanism used to document its test execution.
-
-Coupling evidence generation to the ECU would mix system-under-test
-responsibilities with test and reporting responsibilities.
-
-Keeping the Evidence Framework outside the ECU preserves the architectural
-separation established in Phase 3.
-
-**Consequences:**
-
-Positive:
-
-* The ECU remains unaware of the test framework.
-* Test-target implementation remains reusable.
-* Evidence generation can evolve independently.
-* The architecture supports later automation without modifying the ECU.
-
-Negative:
-
-* Evidence generation requires information from the completed test
-  execution.
-* The interface between `TestResult` and Evidence must remain consistent.
-
----
-
-## ADR-011 — Evidence uses explicit PASS/FAIL semantics based on expected versus actual behavior
-
-**Status:** Accepted
-**Phase:** 4
-**Source:** [MASTER] + [INFERENCE]
-
-The Evidence Framework represents test execution results using two result
-values:
-
-* `PASS`
-* `FAIL`
-
-The semantics are:
-
-```text
-PASS
-Expected behavior == Actual behavior
-
-FAIL
-Expected behavior != Actual behavior
 ```
 
-The Evidence model validates that the declared result is consistent with
-the expected and actual values.
-
 **Rationale:**
 
-The Evidence Framework documents whether the observed behavior matched the
-behavior expected by the executed test.
-
-Explicit result semantics prevent ambiguous interpretations of the evidence
-record.
-
-The distinction is intentionally limited to test-result semantics.
-
-A `FAIL` result means:
-
-> The observed behavior did not match the expected behavior.
-
-A `FAIL` result does **not** by itself establish that a security
-vulnerability has been confirmed.
-
-Security finding assessment belongs to later project phases.
+The system under test must remain separated from the mechanism that records
+and validates security-test observations.
 
 **Consequences:**
 
 Positive:
 
-* Result interpretation is deterministic.
-* Evidence records can be evaluated automatically.
-* Test outcomes remain comparable across executions.
+* ECU implementation remains independent of evidence handling.
+* Evidence can be generated from structured test results.
+* Test execution and evidence handling remain separable.
 
 Negative:
 
-* PASS/FAIL does not represent a complete security risk assessment.
-* Additional security assessment information is required before a result can
-  be treated as a security finding.
+* Evidence generation requires structured test results.
+* Later evidence extensions must preserve the separation between target and
+  evidence layers.
 
----
-
-## ADR-012 — Evidence is serialized as JSON for machine-readable exchange
+### ADR-011 — Evidence uses explicit PASS/FAIL based on expected versus actual behavior
 
 **Status:** Accepted
 **Phase:** 4
 **Source:** [MASTER] + [INFERENCE]
 
-The primary serialization format for Evidence is JSON.
+Evidence uses explicit `PASS` and `FAIL` results.
 
-The Evidence model provides a conversion path from the structured Evidence
-object to a JSON-compatible dictionary representation and then to a JSON
-document.
-
-The intended representation is:
+The result is determined by comparing the expected and actual values:
 
 ```text
-Evidence Object
+expected == actual
+    → PASS
+
+expected != actual
+    → FAIL
+```
+
+Evidence validation verifies that the declared result is consistent with the
+expected and actual values.
+
+A `FAIL` result does not by itself establish that a security vulnerability
+exists.
+
+**Rationale:**
+
+The Evidence Framework records the outcome of the defined security test.
+Security finding classification is a separate concern.
+
+**Consequences:**
+
+* Test results are deterministic.
+* Evidence consistency can be validated.
+* Security findings can be assessed separately in later project phases.
+
+### ADR-012 — Evidence is serialized as JSON
+
+**Status:** Accepted
+**Phase:** 4
+**Source:** [MASTER] + [INFERENCE]
+
+Evidence is serialized as JSON.
+
+The serialization flow is:
+
+```text
+Evidence object
       ↓
-Dictionary
+to_dict()
+      ↓
+JSON-compatible data
+      ↓
+to_json()
       ↓
 JSON
 ```
 
 **Rationale:**
 
-Phase 4 requires machine-readable evidence and explicitly identifies JSON as
-the primary serialization format.
-
-JSON provides a simple representation that can be consumed by local tools,
-test automation, and later artifact-processing mechanisms without coupling
-the Evidence model to a specific CI/CD implementation.
+JSON provides a simple, machine-readable representation that can be consumed
+by tests, automation, and later CI/CD components.
 
 **Consequences:**
 
-Positive:
+* Evidence can be stored and processed programmatically.
+* JSON remains independent from a specific CI/CD platform.
+* Phase 4 does not define CI/CD artifact handling.
 
-* Evidence can be stored and exchanged in a machine-readable format.
-* JSON is suitable for automated processing.
-* The representation remains independent of the ECU implementation.
-* Later automation can consume the serialized representation.
-
-Negative:
-
-* JSON serialization must preserve the semantics of the Evidence model.
-* Future schema extensions must be introduced carefully to avoid ambiguity.
-
-Phase 4 does not implement CI/CD artifact handling.
-
----
-
-## ADR-013 — Evidence validation is lightweight and performed by the Evidence model
+### ADR-013 — Evidence validation remains lightweight and is implemented in the Evidence model
 
 **Status:** Accepted
 **Phase:** 4
 **Source:** [MASTER] + [INFERENCE]
 
-Evidence validation is implemented directly within the Evidence Framework
-using a lightweight validation strategy.
+Evidence validation is implemented directly in the Evidence model.
 
-The validation process verifies the presence and consistency of required
-evidence information.
+Validation covers the required identifying fields, target, preconditions,
+expected value, actual value, result type, and consistency between expected,
+actual, and result.
 
-At minimum, validation covers:
-
-* required identifying fields
-* target information
-* preconditions structure
-* expected behavior
-* actual behavior
-* result type
-* result consistency
-
-Invalid evidence is rejected rather than silently accepted.
+Invalid evidence raises `EvidenceValidationError`.
 
 **Rationale:**
 
-Phase 4 requires protection against incomplete Evidence records but does not
-require a separate validation framework.
-
-A lightweight implementation keeps the project dependency footprint small
-and makes the validation rules explicit and easy to review.
+The Evidence Framework requires deterministic validation without introducing
+an unnecessary validation framework.
 
 **Consequences:**
 
-Positive:
+* Invalid evidence records are rejected.
+* Evidence consistency can be checked locally.
+* The validation implementation remains small and understandable.
 
-* Invalid evidence cannot silently pass validation.
-* Validation behavior is close to the data model.
-* No unnecessary runtime dependency is introduced.
-* Validation rules remain easy to understand.
-
-Negative:
-
-* More complex schema validation may require an architectural extension
-  if future phases introduce substantially more complex evidence structures.
-
----
-
-## ADR-014 — Evidence timestamps use runtime-generated ISO 8601 UTC values
+### ADR-014 — Evidence timestamps use runtime-generated ISO 8601 UTC
 
 **Status:** Accepted
 **Phase:** 4
 **Source:** [MASTER] + [INFERENCE]
 
-Evidence records contain a runtime-generated timestamp represented using an
-ISO-8601-compatible UTC representation.
+Evidence timestamps are generated at runtime using UTC and ISO 8601 format.
 
-The timestamp is generated when Evidence is created rather than being a
-fixed value embedded in the implementation.
+Tests do not depend on a fixed wall-clock timestamp.
 
 **Rationale:**
 
-Evidence represents an actual test execution. The execution timestamp
-therefore belongs to the generated evidence record and must not depend on a
-fixed example timestamp.
-
-Runtime generation also ensures that repeated test executions produce
-execution-specific timestamps.
-
-Tests must not rely on a fixed wall-clock timestamp.
+Evidence should record the actual execution time while remaining suitable for
+automated test execution.
 
 **Consequences:**
 
-Positive:
+* Evidence contains execution-time metadata.
+* Tests remain independent from a fixed timestamp.
+* Timestamp handling remains deterministic in format but not in value.
 
-* Evidence records contain execution-time information.
-* Generated records are suitable for repeated local execution.
-* The timestamp representation is machine-readable.
-
-Negative:
-
-* Timestamp values naturally differ between executions.
-* Tests must verify timestamp structure or presence rather than expect a
-  fixed timestamp.
-
----
-
-## ADR-015 — Evidence is not Security Finding Management
+### ADR-015 — Evidence is not Security Finding Management
 
 **Status:** Accepted
 **Phase:** 4
 **Source:** [MASTER]
 
-The Evidence Framework documents the observation and result of a security
-test execution.
+The Evidence Framework does not implement security finding management.
 
-It does not implement:
+Evidence documents the observation and result of a security test.
 
-* security finding IDs
-* severity classification
-* CVSS calculation
-* root-cause analysis
-* customer security reports
-* remediation tracking
-* fix management
+Security finding management may later address additional information such as:
 
-**Rationale:**
-
-The masterprompt explicitly separates Evidence from Security Finding
-Management.
+```text
+Finding ID
+Severity
+CVSS
+Root Cause
+Customer Report
+Remediation
+Fix Management
+```
 
 Evidence answers:
 
@@ -537,237 +467,335 @@ What actually happened?
 What was the test result?
 ```
 
-A later finding process answers questions such as:
+A security finding answers additional questions concerning the identified
+issue, impact, root cause, and remediation.
 
-```text
-Is this a security issue?
-Why is it a security issue?
-What is the impact?
-What is the root cause?
-How should it be fixed?
-```
+**Rationale:**
 
-Maintaining this boundary prevents the Evidence Framework from becoming an
-implicit vulnerability-management system.
+Evidence and finding management represent different architectural concerns.
 
 **Consequences:**
 
-Positive:
-
 * Evidence remains focused on test execution.
-* Security assessment remains a separate engineering activity.
-* Later finding-management functionality can consume evidence without
-  requiring evidence records to contain finding semantics.
+* Finding management can be added in a later phase without changing the
+  purpose of the Evidence Framework.
+* Evidence must not be interpreted as a complete security finding record.
 
-Negative:
-
-* A FAIL evidence record cannot by itself provide a complete security
-  assessment.
-* Additional later workflow stages are required for finding analysis.
-
----
-
-## ADR-016 — Phase 4 does not implement the future regression or CI/CD layers
+### ADR-016 — Phase 4 does not implement future regression or CI/CD layers
 
 **Status:** Accepted
 **Phase:** 4
 **Source:** [MASTER]
 
-Phase 4 provides the Evidence Framework required to document test
-executions, but it does not implement the complete regression framework or
-CI/CD artifact workflow.
+Phase 4 implements the Evidence Framework only.
 
-The following capabilities remain outside Phase 4:
+Future functionality such as:
 
-* complete regression suite
-* regression workflow
-* GitHub Actions workflow
-* CI/CD artifact handling
-* end-to-end security assessment
+```text
+Complete regression suite
+Regression workflow
+GitHub Actions
+CI/CD integration
+CI/CD artifact handling
+End-to-end assessment
+```
+
+is outside the scope of Phase 4.
 
 **Rationale:**
 
-The project is developed strictly phase by phase.
+The project is implemented phase by phase. Future architecture layers must
+not be implemented implicitly as part of an earlier phase.
 
-The Evidence Framework is intended to provide a reusable foundation for
-later automation, but implementing that later automation during Phase 4
-would violate the defined phase boundary.
+**Consequences:**
+
+* Phase 4 remains limited to evidence generation and validation.
+* Later phases can build on the Evidence Framework.
+* Phase-specific scope remains traceable.
+
+## ADR-017 — Request validation distinguishes malformed, unsupported, and rejected input
+
+**Status:** Accepted
+**Phase:** 6
+**Source:** [MASTER] + [INFERENCE]
+
+The ECU request-validation layer distinguishes malformed input,
+unsupported operations, and rejected parameters.
+
+The defined semantics are:
+
+```text
+Malformed request structure
+    → INVALID_REQUEST
+
+Missing or invalid operation
+    → INVALID_REQUEST
+
+Valid but unsupported operation
+    → UNSUPPORTED_OPERATION
+
+Invalid parameter structure
+    → INVALID_REQUEST
+
+Parameter outside 0..255
+    → REQUEST_REJECTED
+
+Boolean parameter
+    → REQUEST_REJECTED
+```
+
+The valid numeric parameter range is inclusive:
+
+```text
+0..255
+```
+
+Boolean values are explicitly excluded even though Python treats `bool` as a
+subclass of `int`.
+
+**Rationale:**
+
+TC-002 requires deterministic and distinguishable message-validation
+behavior.
+
+The distinction between malformed input, unsupported operations, and rejected
+parameters provides a clear and machine-readable validation model.
+
+**Consequences:**
+
+* Invalid request structures remain distinguishable from unsupported
+  operations.
+* Parameter boundary behavior is deterministic.
+* Boolean values cannot unintentionally pass numeric range validation.
+* Future validation rules must preserve these distinctions unless an
+  explicit architecture change is accepted.
+
+## ADR-018 — TC-003 reuses the existing TC-001 security test definition
+
+**Status:** Accepted
+**Phase:** 7
+**Source:** [TC-003] + [SOURCE]
+
+The Phase-7 regression workflow reuses the existing TC-001
+`SecurityTestCase` definition for the diagnostic authorization security
+property.
+
+The regression test module is:
+
+```text
+04_tests/test_security_regression.py
+```
+
+The pytest functions use the `test_tc003_*` naming convention because they
+verify the TC-003 workflow.
+
+The underlying `SecurityTestCase.test_id` remains:
+
+```text
+TC-001
+```
+
+This is intentional. TC-003 defines the regression workflow, while TC-001
+defines the security property and test condition being reused as the
+regression baseline.
+
+**Rationale:**
+
+The regression workflow must preserve the original security expectation
+rather than create a different expectation merely for regression purposes.
+
+For the protected operation, the security property remains:
+
+```text
+Unauthorized protected operation
+        ↓
+ACCESS_DENIED
+```
+
+Reusing the existing test definition also demonstrates that a previously
+defined security test can serve as the basis for a later regression
+execution.
 
 **Consequences:**
 
 Positive:
 
-* Phase responsibilities remain clearly separated.
-* The Evidence Framework can be reviewed independently.
-* Future regression and CI/CD layers can consume Evidence without requiring
-  premature implementation.
+* The original TC-001 security expectation remains authoritative.
+* Regression execution does not duplicate or redefine the security property.
+* The relationship between TC-001 and TC-003 remains explicit.
+* Changes to regression execution do not alter TC-001 security semantics.
 
 Negative:
 
-* The complete Evidence-to-CI/CD workflow is not available after Phase 4.
-* Later phases must define the integration behavior explicitly.
+* The pytest module name and function prefix identify TC-003 while the
+  underlying `SecurityTestCase` retains `TC-001`.
+* Test identifiers must therefore be interpreted according to their
+  respective layers.
 
----
-
-## ADR-017 — Request validation distinguishes malformed, unsupported, and rejected input
+## ADR-019 — Vulnerable and secure ECU modes provide controlled lifecycle states
 
 **Status:** Accepted
+**Phase:** 7
+**Source:** [SOURCE] + [TC-003]
 
-**Phase:** 6
+The `ECUSimulator` provides explicit `SecurityMode.SECURE` and
+`SecurityMode.VULNERABLE` modes.
 
-**Source:** [MASTER] + [INFERENCE]
+These modes are used by TC-003 to demonstrate the controlled lifecycle of a
+security-relevant deviation and its subsequent secure retest.
 
-The simulated ECU uses distinct response statuses for different request
-validation outcomes:
+The modes do not represent a runtime security-fix mechanism and do not
+modify the simulator during test execution.
 
-| Condition | Response |
-|---|---|
-| Malformed request structure | `INVALID_REQUEST` |
-| Missing or invalid operation field | `INVALID_REQUEST` |
-| Valid but unsupported operation | `UNSUPPORTED_OPERATION` |
-| Invalid parameter structure | `INVALID_REQUEST` |
-| Parameter value outside `0..255` | `REQUEST_REJECTED` |
-| Boolean parameter value | `REQUEST_REJECTED` |
-
-The supported parameter range is inclusive:
+The modeled behavior is:
 
 ```text
-0 <= value <= 255
+VULNERABLE + unauthorized
+        ↓
+ACCESS_GRANTED
+
+SECURE + unauthorized
+        ↓
+ACCESS_DENIED
 ```
 
-Python boolean values are explicitly excluded from the accepted integer
-parameter type.
+**Rationale:**
 
-Rationale:
+The project requires deterministic reproduction of the security-relevant
+condition and deterministic verification of the corrected security
+behavior.
 
-TC-002 requires deterministic message-validation behavior with distinguishable
-response semantics.
+The two explicit simulator modes allow the lifecycle to be demonstrated
+without external systems, uncontrolled environmental state, or real
+vehicle communication.
 
-A malformed request is different from a syntactically valid request targeting
-an unsupported operation. Likewise, a structurally valid request containing
-an invalid parameter value is a separate validation outcome.
+The secure mode represents the intended security behavior. The vulnerable
+mode represents a controlled test condition used to reproduce the modeled
+pre-fix deviation.
 
-Keeping these cases distinct makes the simulator behavior easier to test,
-interpret, and document without introducing a real diagnostic protocol stack.
-
-Consequences:
+**Consequences:**
 
 Positive:
 
-Request-validation behavior is deterministic.
-Test cases can distinguish different classes of invalid input.
-Boundary conditions can be verified explicitly.
-The response model remains simple and machine-readable.
-The behavior supports reproducible message-validation testing.
+* Pre-fix and secure behavior can be reproduced deterministically.
+* The original security condition can be retested with the same input.
+* No real ECU or external system is required.
+* TC-003 remains locally executable.
 
 Negative:
 
-Additional response statuses must remain consistent across the simulator
-and test cases.
-Future request-validation rules must preserve the distinction between
-malformed, unsupported, and rejected input unless an explicit architectural
-change is approved.
+* The vulnerable mode is a simulation mechanism and must not be interpreted
+  as evidence of a real-world vulnerability.
+* The lifecycle does not represent an actual software patch process.
+* The implementation does not provide automated finding-to-fix management.
 
----
+## ADR-020 — Regression evidence is generated from the executed TestResult
 
-# Change Policy
+**Status:** Accepted
+**Phase:** 7
+**Source:** [TC-003] + [SOURCE]
 
-Architecture changes must be documented in this file before they are
-treated as accepted project decisions.
+TC-003 generates regression evidence through the existing
+`EvidenceGenerator` using the executed `SecurityTestCase` and `TestResult`.
 
-Later phases may add new Architecture Decision Records, but they must not
-silently contradict accepted decisions.
+The evidence result is derived from the expected and actual response values
+rather than from the pytest assertion itself.
 
-If a later phase requires a change to an accepted decision, the change must
-be explicitly documented and reviewed rather than silently modifying the
-existing decision.
-
----
-
-# Phase 4 Architectural Summary
-
-The Phase-4 architecture establishes the following boundary:
+The relationship is:
 
 ```text
-+-----------------------+
-| Security Test Case    |
-+-----------------------+
-            |
-            v
-+-----------------------+
-| Security Test Runner  |
-+-----------------------+
-            |
-            v
-+-----------------------+
-| ECU Adapter           |
-+-----------------------+
-            |
-            v
-+-----------------------+
-| Simulated ECU         |
-| System Under Test     |
-+-----------------------+
-            |
-            v
-+-----------------------+
-| ECU Response          |
-+-----------------------+
-            |
-            v
-+-----------------------+
-| Test Result           |
-+-----------------------+
-            |
-            v
-+-----------------------+
-| Evidence Framework    |
-+-----------------------+
-            |
-            v
-+-----------------------+
-| JSON Evidence         |
-+-----------------------+
+SecurityTestCase
+      ↓
+SecurityTestRunner
+      ↓
+TestResult
+      ↓
+EvidenceGenerator
+      ↓
+Evidence
+      ↓
+Evidence.validate()
 ```
 
-The central Phase-4 architectural principle is:
+**Rationale:**
 
-**Evidence documents a security-test observation; it does not become part
-of the system under test.**
+Evidence must represent the actual test execution independently of the
+pytest assertion mechanism.
 
-This preserves the separation between:
+This preserves the architectural separation established by the Evidence
+Framework.
 
-* system behavior
-* test execution
-* test evidence
-* later security assessment
-* later regression automation
+**Consequences:**
 
----
+Positive:
 
-# Phase 4 Review Requirement
+* Evidence remains coupled to the executed test result rather than to test
+  implementation details.
+* Expected and actual behavior remain machine-readable.
+* Evidence validation can independently confirm result consistency.
 
-Before Phase 4 can be declared complete, the implementation and repository
-must be reviewed against the Phase-4 masterprompt.
+Negative:
 
-The review must verify at minimum:
+* The Evidence model remains limited to execution evidence.
+* Security finding management and remediation tracking remain outside the
+  current implementation.
 
-* Evidence model implementation
-* required-field validation
-* PASS/FAIL semantics
-* timestamp generation
-* JSON serialization
-* integration with Phase-3 `TestResult`
-* separation from the ECU
-* Evidence documentation
-* architecture documentation
-* test execution
-* reproducibility
-* absence of future-phase implementation
-* repository state
-* documentation consistency
+## ADR-021 — TC-003 distinguishes lifecycle demonstration from regression retest
 
-Phase 4 must not be marked completed until the defined Quality Gate has
-passed.
+**Status:** Accepted
+**Phase:** 7
+**Source:** [TC-003] + [SOURCE]
+
+The TC-003 test module contains both a controlled lifecycle demonstration and
+actual secure regression/retest verification.
+
+The roles are:
+
+```text
+Lifecycle Demonstration
+    └── test_tc003_reproduces_original_vulnerable_behavior()
+
+Regression / Retest
+    ├── test_tc003_retest_confirms_secure_behavior()
+    ├── test_tc003_regression_evidence_matches_retest_result()
+    └── test_tc003_regression_preserves_authorized_behavior()
+```
+
+The vulnerable-behavior test intentionally verifies a non-passing
+`TestResult` because the simulated vulnerable ECU returns
+`ACCESS_GRANTED` where `ACCESS_DENIED` is required.
+
+The pytest test passes because it verifies that the deviation is correctly
+detected.
+
+**Rationale:**
+
+This separation allows Phase 7 to demonstrate the complete controlled
+security-test lifecycle without treating the vulnerable-state reproduction
+itself as a successful security regression result.
+
+**Consequences:**
+
+* The lifecycle demonstration must not be described as a passing security
+  result.
+* The secure retest is the actual regression verification.
+* A pytest pass does not necessarily mean that the underlying security
+  `TestResult` is `PASS`; the vulnerable-behavior demonstration is the
+  explicit example of this distinction.
+
+## Change Policy
+
+Architecture changes must be documented in this file before they are treated
+as accepted architecture decisions.
+
+Later project phases may add new ADRs.
+
+Later phases must not silently contradict accepted architecture decisions.
+If an existing decision must change, the change must be explicitly
+documented and reviewed.
+
+New implementation behavior that introduces a meaningful architecture
+decision shall be documented as a new ADR rather than being silently added
+to an existing historical decision.
 
 ```
