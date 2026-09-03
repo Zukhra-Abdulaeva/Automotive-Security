@@ -9,22 +9,27 @@ simulated ECU.
 The architecture was introduced in Phase 3 and extended in Phase 4 with the
 Evidence Framework. Phase 5 adds TC-001 — Diagnostic Authorization, Phase 6
 adds TC-002 — Message Validation, Phase 7 adds the verified TC-003 Regression
-Workflow, and Phase 8 adds structured example finding documentation for the
-security observations represented by TC-001 and TC-002.
+Workflow, Phase 8 adds structured example finding documentation for the
+security observations represented by TC-001 and TC-002, and Phase 9 adds the
+automated pytest security regression suite for established security
+properties.
 
 The architecture separates the following responsibilities:
 
-- security-test definition
-- test execution
-- target interaction
-- simulated ECU behavior
-- test-result evaluation
-- evidence generation
+* security-test definition
+* test execution
+* target interaction
+* simulated ECU behavior
+* test-result evaluation
+* evidence generation
+* automated regression verification
 
 The separation is intentional. The security test defines the expected
 security behavior, the simulated ECU provides the system-under-test behavior,
 the Test Runner evaluates the execution result, and the Evidence Framework
-records the resulting observation.
+records the resulting observation. Phase 9 adds automated regression tests as
+a verification layer around these existing components rather than introducing
+a second execution architecture.
 
 The project remains fully simulated and deterministic. It does not communicate
 with real vehicles, real ECUs, CAN networks, UDS endpoints, OEM systems, or
@@ -50,7 +55,7 @@ Communication Layer
        |
        v
 ECU
-````
+```
 
 The project does not implement this real-world communication stack.
 
@@ -78,6 +83,37 @@ Test Result
        v
 Evidence
 ```
+
+Phase 9 adds an automated verification layer around the existing execution
+architecture:
+
+```text
+Established Security Properties
+          |
+          v
+04_tests/test_security_regression.py
+          |
+          v
+SecurityTestCase
+          |
+          v
+SecurityTestRunner
+          |
+          v
+ECUAdapter
+          |
+          v
+Fresh Secure ECUSimulator
+          |
+          v
+TestResult
+          |
+          v
+EvidenceGenerator
+```
+
+This Phase-9 path represents automated pytest verification. It does not
+replace the existing runtime architecture.
 
 ---
 
@@ -121,7 +157,8 @@ SecurityMode.VULNERABLE
         |
         v
 Controlled reproduction of the modeled deviation
-
+        |
+        v
 SecurityMode.SECURE
         |
         v
@@ -168,7 +205,7 @@ The current architecture consists of the following logical components:
               |
               v
 +---------------------------+
-|       ECUSimulator        |
+|        ECUSimulator       |
 +-------------+-------------+
               |
               v
@@ -192,6 +229,10 @@ Each component has a defined responsibility.
 The architecture deliberately prevents security-test logic, ECU security
 behavior, and evidence generation from being combined into a single
 component.
+
+Phase 9 does not add another target, adapter, runner, response model, or
+evidence model. It adds automated pytest verification around the established
+components.
 
 ---
 
@@ -217,30 +258,45 @@ The test case does not implement the ECU security policy.
 The expected result is therefore defined independently from the concrete
 implementation of the simulated ECU.
 
-TC-003 does not introduce a separate `SecurityTestCase` with a new
-`test_id`. The regression workflow reuses the existing TC-001
-`SecurityTestCase` and its defined authorization security property.
+For the Phase-7 TC-003 regression workflow, the existing TC-001
+`SecurityTestCase` is reused as described in the Phase-7 implementation.
 
-The relationship is:
+Phase 9 uses the same `SecurityTestCase` architecture but creates its own
+test-case instances inside `04_tests/test_security_regression.py`. These
+regression scenarios use:
 
 ```text
-TC-003
-  |
-  | defines and verifies the regression workflow
-  v
-test_security_regression.py
-  |
-  | reuses
-  v
-TC-001 SecurityTestCase
-  |
-  +-- test_id = "TC-001"
-  |
-  +-- expected unauthorized behavior = ACCESS_DENIED
+test_id = "TC-003"
 ```
 
-This preserves the original security property while allowing the regression
-workflow to execute the relevant condition again against the secure target.
+They therefore reuse the established `SecurityTestCase` structure and the
+existing execution architecture without reusing the same TC-001
+`SecurityTestCase` instance or definition.
+
+The Phase-9 relationship is:
+
+```text
+Phase-9 automated regression test
+        |
+        v
+04_tests/test_security_regression.py
+        |
+        v
+SecurityTestCase
+        |
+        +-- test_id = "TC-003"
+        |
+        +-- request = defined regression scenario
+        |
+        +-- expected_status = established security behavior
+        |
+        v
+SecurityTestRunner
+```
+
+This distinction preserves the original Phase-7 architecture while allowing
+Phase 9 to define independent automated regression scenarios using the same
+test-case model.
 
 ---
 
@@ -295,6 +351,10 @@ For TC-003, the existing `SecurityTestRunner` remains responsible for the
 expected-versus-actual comparison. No separate regression execution engine
 is introduced.
 
+Phase 9 also uses the existing `SecurityTestRunner`. The pytest regression
+suite therefore verifies the behavior of the established test execution
+architecture rather than introducing a separate regression runner.
+
 ---
 
 ## ECUTarget
@@ -326,6 +386,9 @@ The current implementation uses the simulated ECU behind this interface.
 
 No real vehicle communication protocol is implemented through `ECUTarget`.
 
+Phase 9 does not introduce another target interface. The automated regression
+suite executes against the existing simulated target.
+
 ---
 
 ## ECUAdapter
@@ -350,6 +413,8 @@ execution layer and the concrete simulated target.
 
 This separation allows the test infrastructure to remain independent from the
 concrete ECU simulator implementation.
+
+Phase 9 reuses the same adapter boundary for automated regression execution.
 
 ---
 
@@ -418,6 +483,11 @@ system.
 For Phase 7, the vulnerable mode is used to reproduce the modeled pre-fix
 behavior in a controlled test environment. Secure mode represents the
 intended secure behavior used for the regression retest.
+
+Phase 9 executes its automated regression scenarios against fresh secure
+simulator instances. Vulnerable-state reproduction remains part of the
+controlled Phase-7 regression workflow and is not duplicated by the Phase-9
+pytest suite.
 
 The simulator remains independent from the Test Runner and Evidence
 Framework.
@@ -492,6 +562,11 @@ remains `ACCESS_DENIED`, while the controlled vulnerable simulator returns
 `ACCESS_GRANTED`. The resulting `TestResult` is therefore a failed security
 test result.
 
+For Phase 9, the automated pytest suite asserts the resulting `TestResult`
+against the established expected security behavior. A pytest PASS therefore
+means that the regression assertion itself succeeded; it does not change the
+semantics of the underlying `TestResult`.
+
 ---
 
 ## Evidence Framework
@@ -533,6 +608,11 @@ Evidence represents the observation produced by a test execution.
 For TC-003, regression evidence is generated from the executed regression
 retest result. The Evidence Framework itself does not determine whether a
 security regression exists.
+
+Phase 9 reuses the existing Evidence Framework for regression-evidence
+verification. The dedicated regression suite contains a scenario that
+generates evidence from the secure retest result and validates the generated
+evidence.
 
 ---
 
@@ -594,6 +674,10 @@ Generalized finding management, automated finding ingestion, historical
 finding tracking, and generalized remediation management remain outside the
 current architecture.
 
+Phase 9 verifies that regression evidence produced from a secure retest
+contains the expected test identifier, target, preconditions, expected
+behavior, actual behavior, and PASS result.
+
 ---
 
 ## Complete Test Execution Flow
@@ -643,6 +727,9 @@ The execution path separates target behavior from test evaluation and evidence
 generation.
 
 This means that the ECU simulator remains unaware of the Evidence Framework.
+
+Phase 9 adds automated pytest assertions around this execution path. It does
+not change the underlying request, response, result, or evidence flow.
 
 ---
 
@@ -872,6 +959,106 @@ ACCESS_GRANTED
 TC-003 therefore verifies both the restored security property and the
 preservation of the authorized behavior.
 
+Phase 9 is distinct from this Phase-7 workflow. Phase 7 demonstrates the
+controlled regression lifecycle, including vulnerable-state reproduction.
+Phase 9 provides an automated pytest regression suite for established
+security properties and does not reproduce vulnerable behavior in the
+dedicated regression test file.
+
+---
+
+## Phase-9 Automated Security Regression Suite
+
+Phase 9 introduces automated pytest verification for established security
+properties.
+
+The dedicated regression suite is implemented in:
+
+```text
+04_tests/test_security_regression.py
+```
+
+The suite reuses the existing security-test execution architecture:
+
+```text
+Phase-9 Regression Test
+        |
+        v
+SecurityTestCase
+        |
+        v
+SecurityTestRunner
+        |
+        v
+ECUAdapter
+        |
+        v
+Fresh Secure ECUSimulator
+        |
+        v
+TestResult
+        |
+        v
+EvidenceGenerator
+```
+
+Each regression scenario creates a fresh `ECUSimulator` in secure mode and
+explicitly configures the required authorization state and, where required,
+the ECU state.
+
+The dedicated suite verifies the following established behaviors:
+
+```text
+1. Unauthorized protected operation
+   Expected = ACCESS_DENIED
+
+2. Authorized protected operation
+   Expected = ACCESS_GRANTED
+
+3. Invalid message
+   Expected = INVALID_REQUEST
+
+4. Unsupported operation
+   Expected = UNSUPPORTED_OPERATION
+
+5. Boundary input outside the accepted parameter range
+   Expected = REQUEST_REJECTED
+
+6. Protected operation in blocked ECU state
+   Expected = REQUEST_REJECTED
+
+7. Regression evidence for the secure unauthorized retest
+   Expected = ACCESS_DENIED
+   Actual   = ACCESS_DENIED
+   Evidence Result = PASS
+```
+
+The boundary-input regression scenario uses an out-of-range parameter value of
+`256` and verifies that validation cannot be bypassed.
+
+The blocked-state regression scenario verifies that an authorized request does
+not enable protected behavior when the ECU is in the blocked state.
+
+The evidence regression scenario generates evidence from the executed secure
+retest and validates the resulting evidence object.
+
+Phase 9 does not introduce:
+
+```text
+A new target implementation
+A new adapter
+A new test runner
+A new response model
+A new evidence model
+A generalized regression engine
+Historical result comparison
+Automatic finding management
+CI/CD integration
+```
+
+The Phase-9 suite is therefore an automated verification layer over the
+existing architecture rather than a new runtime architecture.
+
 ---
 
 ## Phase-8 Security Finding Documentation
@@ -913,8 +1100,8 @@ TC-001
 Expected = ACCESS_DENIED
 Actual   = ACCESS_GRANTED
 Result   = FAIL
-        |
-        v
+       |
+       v
 SEC-001
 Unauthorized access to protected diagnostic operation
 ```
@@ -928,11 +1115,11 @@ scenarios did not reproduce a security-relevant deviation:
 ```text
 TC-002
 Expected == Actual
-        |
-        v
+       |
+       v
 No security-relevant deviation reproduced
-        |
-        v
+       |
+       v
 SEC-002 example documentation
 ```
 
@@ -981,12 +1168,17 @@ For the secure regression retest, both results are positive:
 ```text
 SecurityTestCase expected: ACCESS_DENIED
 ECUSimulator actual:       ACCESS_DENIED
-TestResult.passed:         True
+TestResult.passed:          True
 pytest test:               PASS
 ```
 
 This distinction is required for a correct interpretation of the Phase-7
 test lifecycle.
+
+Phase 9 applies the same distinction. A pytest PASS means that the automated
+regression assertion succeeded. For secure regression scenarios, this
+normally corresponds to a `TestResult` with `passed = True`, while the
+pytest framework result remains a separate verification-layer result.
 
 ---
 
@@ -1070,6 +1262,9 @@ response returned by the target.
 
 This keeps target behavior and test evaluation separate.
 
+Phase 9 verifies these existing validation behaviors through automated
+regression scenarios without moving validation logic into the test suite.
+
 ---
 
 ## Determinism
@@ -1104,6 +1299,10 @@ state.
 The Phase-7 regression workflow remains deterministic because the vulnerable
 and secure target states are explicitly configured and the same defined
 security condition is evaluated through the existing execution architecture.
+
+Phase 9 preserves this determinism by creating a fresh secure ECU simulator
+for each regression scenario and explicitly configuring the required
+authorization and ECU state.
 
 ---
 
@@ -1160,6 +1359,10 @@ access to internal ECU implementation details.
 Phase 8 follows the same boundary. Example finding documentation consumes
 existing test and evidence results but does not modify target behavior, test
 execution, or evidence generation.
+
+Phase 9 also follows the same boundary. The automated regression tests
+configure the target through its defined public behavior and evaluate the
+returned results through the existing test architecture.
 
 ---
 
@@ -1257,6 +1460,13 @@ existing test and evidence architecture.
 
 The Phase-8 finding layer does not change the target, test-runner, adapter, or
 evidence architecture.
+
+Phase 9 adds automated pytest verification of established security properties
+on top of the existing test and evidence architecture.
+
+The Phase-9 implementation is limited to deterministic local regression
+verification. It does not implement a generalized regression-management
+platform.
 
 The architecture does not yet provide:
 
@@ -1375,9 +1585,7 @@ Phase 7 introduces the controlled regression workflow:
 TC-003 — Regression Workflow
 ```
 
-TC-003 does not introduce a new `SecurityTestCase`.
-
-Instead, it reuses the TC-001 security-test definition and verifies the
+TC-003 reuses the existing TC-001 security-test definition and verifies the
 regression lifecycle for the diagnostic authorization security property.
 
 The workflow includes:
@@ -1421,6 +1629,38 @@ tracking system.
 The finding documents remain controlled portfolio documentation artifacts
 derived from the existing security-test and evidence workflow.
 
+### Phase 9 — Automated Security Regression Suite
+
+Phase 9 introduces the dedicated pytest security regression suite:
+
+```text
+04_tests/test_security_regression.py
+```
+
+The suite verifies established security properties using the existing
+`SecurityTestCase`, `SecurityTestRunner`, `ECUAdapter`, `ECUSimulator`,
+`TestResult`, and Evidence Framework components.
+
+The automated regression suite verifies:
+
+* unauthorized protected operation is denied
+* authorized protected operation remains allowed
+* invalid messages are rejected
+* unsupported operations are rejected
+* out-of-range boundary input does not bypass validation
+* blocked ECU state does not enable protected behavior
+* regression evidence correctly represents the secure retest
+
+Each regression scenario uses a fresh secure ECU simulator with explicitly
+configured authorization and ECU state.
+
+Phase 9 does not introduce a new execution architecture, target abstraction,
+communication layer, generalized regression engine, historical comparison
+mechanism, finding-management system, or CI/CD integration.
+
+The vulnerable-state reproduction remains part of the Phase-7 TC-003 workflow.
+Phase 9 focuses on automated verification of the established secure behavior.
+
 ---
 
 ## Verification
@@ -1428,43 +1668,46 @@ derived from the existing security-test and evidence workflow.
 The current repository has been locally verified with:
 
 ```text
-pytest -q
+pytest -v
 ```
 
 Result:
 
 ```text
-38 passed
+41 passed in 0.16s
 ```
 
-The dedicated TC-003 regression workflow has also been verified with:
+The dedicated Phase-9 security regression suite has also been verified with:
 
 ```text
-pytest -q 04_tests/test_security_regression.py
+pytest .\04_tests\test_security_regression.py -v
 ```
 
 Result:
 
 ```text
-4 passed
+7 passed in 0.06s
 ```
 
-The current test distribution is:
+The verified full-suite test distribution is:
 
 ```text
-ECU Simulation Tests:              6
-Evidence Framework Tests:        14
-Foundation Tests:                 1
-Security Test Architecture:       4
-TC-001 Diagnostic Authorization:  4
+ECU Simulation Tests:               6
+Evidence Framework Tests:         14
+Foundation Tests:                  1
+Security Regression Tests:         7
+TC-001 Diagnostic Authorization:   4
 TC-002 Message Validation:        5
-TC-003 Regression Workflow:       4
------------------------------------
-Total:                            38
+Test Runner Tests:                 4
+-------------------------------------
+Total:                            41
 ```
 
-The TC-003 tests reuse the existing test architecture and do not introduce a
-second target or execution abstraction.
+The Phase-9 regression tests reuse the existing test architecture and do not
+introduce a second target or execution abstraction.
+
+The dedicated Phase-9 suite currently contains seven regression scenarios and
+all seven pass locally.
 
 ---
 
@@ -1492,6 +1735,9 @@ The current implementation provides:
 * SEC-001 example finding documentation
 * SEC-002 example finding documentation
 * finding documentation linked to existing test and evidence results
+* automated pytest security regression verification
+* seven verified Phase-9 regression scenarios
+* regression-evidence verification for the secure retest
 
 The following capabilities are outside the current implementation:
 
@@ -1507,6 +1753,7 @@ The following capabilities are outside the current implementation:
 * CVSS calculation
 * historical regression comparison
 * generalized regression orchestration
+* automatic regression-test generation
 * CI/CD integration
 
 These capabilities are reserved for later project phases.
@@ -1553,11 +1800,18 @@ This principle is also preserved by TC-003. The original TC-001 expectation
 remains `ACCESS_DENIED` throughout the vulnerable-state reproduction and the
 secure regression retest.
 
+Phase 9 preserves the same principle by defining expected statuses in the
+regression test cases independently from the concrete simulator behavior.
+
 ### 5. Keep the Simulation Deterministic
 
 Equivalent input and target state must produce equivalent target behavior.
 
 This is required for reproducible local security testing.
+
+Phase 9 maintains this property by using deterministic inputs and fresh,
+explicitly configured secure simulator instances for individual regression
+scenarios.
 
 ### 6. Reuse Existing Architectural Boundaries for Regression Testing
 
@@ -1569,6 +1823,10 @@ test-result mechanism solely for regression testing.
 
 The regression workflow operates on the existing test definition, target
 behavior, `TestResult`, and Evidence Framework.
+
+Phase 9 follows the same principle. The automated regression suite reuses the
+existing test-case, runner, target, simulator, result, and evidence
+components instead of introducing parallel implementations.
 
 ### 7. Add Future Workflow Stages Only When Their Prerequisites Exist
 
@@ -1596,6 +1854,9 @@ TC-003 Regression Workflow
 Phase-8 Example Findings
        |
        v
+Phase-9 Automated Security Regression Suite
+       |
+       v
 Future Generalized Regression
        |
        v
@@ -1614,8 +1875,10 @@ test environment.
 
 The purpose of the project is to demonstrate how a security requirement can be
 translated into a reproducible security test, how the resulting execution can
-be evaluated and recorded as structured evidence, and how a defined security
-property can be retested through a controlled regression workflow.
+be evaluated and recorded as structured evidence, how a defined security
+property can be retested through a controlled regression workflow, and how
+established security properties can be protected by automated regression
+tests.
 
 The project does not attempt to reproduce a complete automotive
 communication stack, production ECU, or real vehicle environment.
@@ -1637,3 +1900,9 @@ Phase 8 adds structured example finding documentation as a documentation layer
 on top of the existing test and evidence workflow. The Phase-8 findings are
 controlled documentation artifacts and do not constitute a generalized
 security finding management or vulnerability tracking platform.
+
+Phase 9 adds automated pytest verification for the established security
+properties represented by the current security-test architecture. It is a
+deterministic local regression suite and does not constitute a generalized
+regression management platform, historical comparison system, or CI/CD
+implementation.

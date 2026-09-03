@@ -12,15 +12,13 @@ From Security Finding to Reproducible Automotive Security Tests
 
 ## Current Status
 
-**Current Phase:** Phase 8 — Example Findings
+**Current Phase:** Phase 9 — pytest Regression Suite
 
 **Status:** Implemented and locally verified
 
-Phase 8 documents representative security findings based on the established
-TC-001, TC-002, TC-003, and Evidence Framework workflow.
+Phase 9 adds an automated pytest regression suite for the established security properties and integrates the existing Evidence Framework into automated regression verification.
 
-Phase 7 remains the verified regression-workflow baseline and is not changed
-by Phase 8.
+Phase 7 remains the verified regression-workflow baseline. Phase 8 documents representative security findings based on the established workflow.
 
 The current implementation provides:
 
@@ -37,32 +35,37 @@ The current implementation provides:
 * controlled vulnerable-state reproduction
 * secure retest of the same security condition
 * regression evidence generation and validation
+* automated security regression scenarios
+* isolated secure ECU instances for regression scenarios
+* automated verification of expected versus actual security behavior
+* automated verification of generated regression evidence
+* explicit Evidence validation through `evidence.validate()`
 * authorized-behavior verification
-* automated pytest verification
 
-The project remains a local simulation. No real vehicle, ECU, CAN, UDS, OEM,
-production, or external vehicle-network system is involved.
+The automated regression suite reuses the existing security-test architecture and Evidence Framework. It does not introduce a separate regression test model, evidence model, target abstraction, or evidence-generation mechanism.
+
+The project remains a local simulation. No real vehicle, ECU, CAN, UDS, OEM, production, or external vehicle-network system is involved.
 
 ---
 
 ## Phase Status
 
-| Phase    | Description                     | Status    |
-| -------- | ------------------------------- | --------- |
-| Phase 1  | Repository Foundation           | Completed |
-| Phase 2  | ECU Simulation                  | Completed |
-| Phase 3  | Security Test Architecture      | Completed |
-| Phase 4  | Evidence Framework              | Completed |
-| Phase 5  | TC-001 Diagnostic Authorization | Completed |
-| Phase 6  | TC-002 Message Validation       | Completed |
-| Phase 7  | TC-003 Regression Workflow      | Completed |
-| Phase 8  | Example Findings                | Completed |
-| Phase 9  | pytest Regression Suite         | Planned   |
-| Phase 10 | CI/CD                           | Planned   |
-| Phase 11 | End-to-End Assessment           | Planned   |
-| Phase 12 | Professional Documentation      | Planned   |
-| Phase 13 | Technical Review                | Planned   |
-| Phase 14 | Recruiter / Interview Review    | Planned   |
+| Phase    | Description                      | Status    |
+| -------- | -------------------------------- | --------- |
+| Phase 1  | Repository Foundation            | Completed |
+| Phase 2  | ECU Simulation                   | Completed |
+| Phase 3  | Security Test Architecture       | Completed |
+| Phase 4  | Evidence Framework               | Completed |
+| Phase 5  | TC-001 Diagnostic Authorization  | Completed |
+| Phase 6  | TC-002 Message Validation        | Completed |
+| Phase 7  | TC-003 Regression Workflow       | Completed |
+| Phase 8  | Example Findings                 | Completed |
+| Phase 9  | pytest Regression Suite          | Completed |
+| Phase 10 | CI/CD                            | Planned   |
+| Phase 11 | End-to-End Assessment            | Planned   |
+| Phase 12 | Professional Documentation       | Planned   |
+| Phase 13 | Technical Review                 | Planned   |
+| Phase 14 | Recruiter / Interview Review     | Planned   |
 
 ---
 
@@ -109,7 +112,7 @@ The simulator does not implement real CAN or UDS communication.
 The ECU test suite covers:
 
 | Scenario                                            | Expected behavior       |
-| --------------------------------------------------- | ----------------------- |
+| --------------------------------------------------- | ------------------------|
 | Unauthorized protected operation in secure mode     | `ACCESS_DENIED`         |
 | Authorized protected operation in secure mode       | `ACCESS_GRANTED`        |
 | Unauthorized protected operation in vulnerable mode | `ACCESS_GRANTED`        |
@@ -159,12 +162,12 @@ The Test Runner communicates with the target through the `ECUTarget` abstraction
 
 The architecture was verified with four scenarios:
 
-| Test ID       | Scenario                          | Expected                | Actual                  | Result |
-| ------------- | --------------------------------- | ----------------------- | ----------------------- | ------ |
-| `TC-ARCH-001` | Unauthorized protected operation  | `ACCESS_DENIED`         | `ACCESS_DENIED`         | PASS   |
-| `TC-ARCH-002` | Authorized protected operation    | `ACCESS_GRANTED`        | `ACCESS_GRANTED`        | PASS   |
-| `TC-ARCH-003` | Invalid operation                 | `UNSUPPORTED_OPERATION` | `UNSUPPORTED_OPERATION` | PASS   |
-| `TC-ARCH-004` | Vulnerable unauthorized operation | `ACCESS_GRANTED`        | `ACCESS_GRANTED`        | PASS   |
+| Test ID        | Scenario                           | Expected                 | Actual                   | Result |
+| -------------- | ---------------------------------- | ------------------------ | ------------------------ | ------ |
+| `TC-ARCH-001`  | Unauthorized protected operation   | `ACCESS_DENIED`          | `ACCESS_DENIED`          | PASS   |
+| `TC-ARCH-002`  | Authorized protected operation     | `ACCESS_GRANTED`         | `ACCESS_GRANTED`         | PASS   |
+| `TC-ARCH-003`  | Invalid operation                  | `UNSUPPORTED_OPERATION`  | `UNSUPPORTED_OPERATION`  | PASS   |
+| `TC-ARCH-004`  | Vulnerable unauthorized operation  | `ACCESS_GRANTED`         | `ACCESS_GRANTED`         | PASS   |
 
 ---
 
@@ -343,12 +346,12 @@ Parameter validation is explicitly limited to integer values from `0` through `2
 
 The boundary behavior is:
 
-| Input | Expected response  |
-| ----: | ------------------ |
-|  `-1` | `REQUEST_REJECTED` |
-|   `0` | Valid parameter    |
-| `255` | Valid parameter    |
-| `256` | `REQUEST_REJECTED` |
+| Input | Expected response      |
+| ----: | ---------------------- |
+|  `-1` | `REQUEST_REJECTED`     |
+|   `0` | Valid parameter        |
+| `255` | Valid parameter        |
+| `256` | `REQUEST_REJECTED`     |
 
 This validation behavior is covered by the dedicated TC-002 message-validation tests.
 
@@ -379,17 +382,18 @@ TC-001 does not bypass the target abstraction or modify the expected result to a
 
 TC-001 covers four scenarios:
 
-| Scenario            | ECU Mode              | Authorization | Operation             | Expected          |
-| ------------------- | --------------------- | ------------: | --------------------- | ----------------- |
-| Unauthorized access | Secure                |       `false` | `PROTECTED_OPERATION` | `ACCESS_DENIED`   |
-| Authorized access   | Secure                |        `true` | `PROTECTED_OPERATION` | `ACCESS_GRANTED`  |
-| Unauthorized access | Vulnerable            |       `false` | `PROTECTED_OPERATION` | `ACCESS_GRANTED`  |
-| Invalid request     | Controlled simulation |             — | Invalid input         | `INVALID_REQUEST` |
+| Scenario            | ECU Mode              | Authorization | Operation              | Expected           |
+| ------------------- | --------------------- | ------------: | ---------------------- | ------------------ |
+| Unauthorized access | Secure                | `false`       | `PROTECTED_OPERATION`  | `ACCESS_DENIED`    |
+| Authorized access   | Secure                | `true`        | `PROTECTED_OPERATION`  | `ACCESS_GRANTED`   |
+| Unauthorized access | Vulnerable            | `false`       | `PROTECTED_OPERATION`  | `ACCESS_GRANTED`   |
+| Invalid request     | Controlled simulation | —             | Invalid input          | `INVALID_REQUEST`  |
 
 The vulnerable scenario is evaluated against the security requirement:
 
 ```text
 Expected = ACCESS_DENIED
+
 Actual   = ACCESS_GRANTED
 ```
 
@@ -472,9 +476,12 @@ A corrected implementation must therefore satisfy:
 
 ```text
 authorization = false
+
 +
 PROTECTED_OPERATION
+
 ↓
+
 ACCESS_DENIED
 ```
 
@@ -505,7 +512,7 @@ The expected verification result is:
 
 ---
 
-## Phase 6 — TC-002 Message Validation
+# Phase 6 — TC-002 Message Validation
 
 **Status: Implemented and Verified**
 
@@ -539,12 +546,12 @@ Parameter validation is explicitly limited to integer values from 0 through 255.
 
 ### Boundary Behavior
 
-| Input | Expected response  |
-| ----: | ------------------ |
-|  `-1` | `REQUEST_REJECTED` |
-|   `0` | Valid parameter    |
-| `255` | Valid parameter    |
-| `256` | `REQUEST_REJECTED` |
+| Input | Expected response      |
+| ----: | ---------------------- |
+|  `-1` | `REQUEST_REJECTED`     |
+|   `0` | Valid parameter        |
+| `255` | Valid parameter        |
+| `256` | `REQUEST_REJECTED`     |
 
 This validation behavior is covered by the dedicated TC-002 message-validation tests.
 
@@ -564,12 +571,12 @@ The test case does not bypass the ECU interface or directly manipulate the expec
 
 TC-002 covers four primary validation scenarios:
 
-| Test ID  | Scenario              | Expected                |
-| -------- | --------------------- | ----------------------- |
-| TC-002-A | Invalid input         | `INVALID_REQUEST`       |
-| TC-002-B | Unsupported operation | `UNSUPPORTED_OPERATION` |
-| TC-002-C | Boundary condition    | `REQUEST_REJECTED`      |
-| TC-002-D | Unexpected ECU state  | `REQUEST_REJECTED`      |
+| Test ID  | Scenario               | Expected                |
+| -------- | ---------------------- | ----------------------- |
+| TC-002-A | Invalid input          | `INVALID_REQUEST`       |
+| TC-002-B | Unsupported operation  | `UNSUPPORTED_OPERATION` |
+| TC-002-C | Boundary condition     | `REQUEST_REJECTED`      |
+| TC-002-D | Unexpected ECU state   | `REQUEST_REJECTED`      |
 
 The dedicated test suite additionally verifies that the valid parameter boundary values 0 and 255 are accepted for the protected operation.
 
@@ -615,8 +622,7 @@ TC-002 verifies deterministic request validation, including unsupported operatio
 
 **Status: Implemented and locally verified**
 
-Phase 7 implements the defined regression workflow for the diagnostic
-authorization security property established by TC-001.
+Phase 7 implements the defined regression workflow for the diagnostic authorization security property established by TC-001.
 
 The implementation is contained in:
 
@@ -642,14 +648,14 @@ Evidence validation
 Authorized behavior verification
 ```
 
-The four TC-003 test functions verify:
+The four TC-003 test functions verify the regression workflow baseline:
 
-| Test                                                   | Purpose                                                                          |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| `test_tc003_reproduces_original_vulnerable_behavior`   | Demonstrates the controlled pre-fix behavior in `SecurityMode.VULNERABLE`        |
-| `test_tc003_retest_confirms_secure_behavior`           | Verifies that the same unauthorized condition is denied in `SecurityMode.SECURE` |
-| `test_tc003_regression_evidence_matches_retest_result` | Verifies that generated Evidence represents the executed secure retest           |
-| `test_tc003_regression_preserves_authorized_behavior`  | Verifies that authorized protected access remains available                      |
+| Test | Purpose |
+| ---- | ------- |
+| `test_tc003_reproduces_original_vulnerable_behavior` | Demonstrates the controlled pre-fix behavior in `SecurityMode.VULNERABLE` |
+| `test_tc003_retest_confirms_secure_behavior` | Verifies that the same unauthorized condition is denied in `SecurityMode.SECURE` |
+| `test_tc003_regression_evidence_matches_retest_result` | Verifies that generated Evidence represents the executed secure retest |
+| `test_tc003_regression_preserves_authorized_behavior` | Verifies that authorized protected access remains available |
 
 The first test intentionally observes:
 
@@ -667,9 +673,13 @@ The secure regression condition verifies:
 
 ```text
 Authorization: false
+
 Operation:     PROTECTED_OPERATION
+
 Expected:      ACCESS_DENIED
+
 Actual:        ACCESS_DENIED
+
 Result:        PASS
 ```
 
@@ -677,13 +687,17 @@ The authorized functional condition verifies:
 
 ```text
 Authorization: true
+
 Operation:     PROTECTED_OPERATION
+
 Expected:      ACCESS_GRANTED
+
 Actual:        ACCESS_GRANTED
+
 Result:        PASS
 ```
 
-The current Phase-7 implementation does not provide generalized finding management, automatic finding ingestion, automatic test generation, automatic regression registration, historical result comparison, or regression orchestration.
+Phase 7 established the regression workflow baseline. Phase 9 extends this workflow with an automated regression suite covering additional security and validation scenarios.
 
 ---
 
@@ -691,19 +705,17 @@ The current Phase-7 implementation does not provide generalized finding manageme
 
 **Status: Completed**
 
-Phase 8 introduces structured example security findings based on the existing
-security-test, TestResult, and Evidence Framework implementation.
+Phase 8 introduces structured example security findings based on the existing security-test, TestResult, and Evidence Framework implementation.
 
-The phase does not change the Phase-7 regression workflow or the existing
-security-test implementation.
+The phase does not change the Phase-7 regression workflow or the existing security-test implementation.
 
 ### Phase-8 Findings
 
 Two representative finding documents are defined:
 
-| Finding   | Source   | Assessment                                                            |
-| --------- | -------- | --------------------------------------------------------------------- |
-| `SEC-001` | `TC-001` | Controlled unauthorized-access deviation reproduced                   |
+| Finding   | Source   | Assessment |
+| --------- | -------- | ---------- |
+| `SEC-001` | `TC-001` | Controlled unauthorized-access deviation reproduced |
 | `SEC-002` | `TC-002` | No security-relevant deviation reproduced in the documented scenarios |
 
 The finding documents are:
@@ -721,25 +733,29 @@ The reproduced condition is:
 
 ```text
 Authorization: false
+
 Operation:     PROTECTED_OPERATION
 
 Expected: ACCESS_DENIED
+
 Actual:   ACCESS_GRANTED
+
 Result:   FAIL
 ```
 
-The root cause is traceable to the deliberate vulnerable branch in
-`ECUSimulator.handle_request()` where access is granted in
-`SecurityMode.VULNERABLE` before the authorization state is enforced.
+The root cause is traceable to the deliberate vulnerable branch in `ECUSimulator.handle_request()` where access is granted in `SecurityMode.VULNERABLE` before the authorization state is enforced.
 
 The secure behavior and retest are:
 
 ```text
 Authorization: false
+
 Operation:     PROTECTED_OPERATION
 
 Expected: ACCESS_DENIED
+
 Actual:   ACCESS_DENIED
+
 Result:   PASS
 ```
 
@@ -747,15 +763,17 @@ Authorized behavior remains:
 
 ```text
 Authorization: true
+
 Operation:     PROTECTED_OPERATION
 
 Expected: ACCESS_GRANTED
+
 Actual:   ACCESS_GRANTED
+
 Result:   PASS
 ```
 
-SEC-001 is therefore documented as a controlled, reproducible security
-finding within the simulation.
+SEC-001 is therefore documented as a controlled, reproducible security finding within the simulation.
 
 ### SEC-002
 
@@ -781,18 +799,17 @@ Blocked ECU state
 REQUEST_REJECTED
 ```
 
-Valid boundary values remain accepted when the authorization requirement is
-satisfied:
+Valid boundary values remain accepted when the authorization requirement is satisfied:
 
 ```text
 0
+
 255
 ```
 
 No security-relevant deviation was reproduced in the assessed scenarios.
 
-SEC-002 is therefore documented as an assessment example and does not claim
-a demonstrated vulnerability.
+SEC-002 is therefore documented as an assessment example and does not claim a demonstrated vulnerability.
 
 ### Finding Documentation Scope
 
@@ -826,29 +843,152 @@ Finding Assessment
 Example Finding Document
 ```
 
-Phase 9 and later phases are not implemented as part of this documentation
-layer.
+Phase 9 is implemented separately as an automated pytest regression suite and does not extend the finding-documentation layer.
 
 ---
 
-## Complete Test Suite
+# Phase 9 — pytest Regression Suite
 
-The complete suite was executed from:
+**Status: Implemented and locally verified**
+
+Phase 9 adds an automated pytest regression suite for the established security properties.
+
+The implementation is contained in:
 
 ```text
-04_tests
+04_tests/test_security_regression.py
 ```
 
-with:
+The suite uses the existing:
 
 ```text
-pytest -q
+SecurityTestCase
+SecurityTestRunner
+ECUAdapter
+ECUSimulator
+EvidenceGenerator
+Evidence
+```
+
+No new target abstraction, communication layer, evidence model, or generalized regression framework was introduced.
+
+### Automated Regression Scenarios
+
+The suite verifies seven scenarios:
+
+| Scenario | Expected behavior |
+| -------- | ----------------- |
+| Unauthorized protected operation | `ACCESS_DENIED` |
+| Authorized protected operation | `ACCESS_GRANTED` |
+| Invalid message | `INVALID_REQUEST` |
+| Unsupported operation | `UNSUPPORTED_OPERATION` |
+| Out-of-range boundary input | `REQUEST_REJECTED` |
+| Protected operation in blocked ECU state | `REQUEST_REJECTED` |
+| Regression evidence matches secure retest | Validated Evidence with `PASS` |
+
+Each scenario creates a fresh ECU instance in secure mode. Authorization and ECU state are explicitly configured before execution.
+
+This provides isolation between scenarios and prevents state from a previous test from influencing subsequent regression results.
+
+### Automated Evidence Verification
+
+The regression suite does not only verify the ECU response.
+
+One dedicated test generates Evidence from the executed `SecurityTestCase` and `TestResult` and verifies the resulting Evidence content.
+
+The verified evidence contains:
+
+```text
+test_id       = TC-003
+target        = simulated-ecu
+authorization = false
+ecu_state     = READY
+security_mode = SECURE
+expected      = ACCESS_DENIED
+actual        = ACCESS_DENIED
+result        = PASS
+```
+
+The generated Evidence is then explicitly validated:
+
+```text
+evidence.validate()
+```
+
+This verifies that the generated Evidence satisfies the existing Evidence Framework validation rules.
+
+The automated regression path is therefore:
+
+```text
+SecurityTestCase
+      ↓
+SecurityTestRunner
+      ↓
+TestResult
+      ↓
+EvidenceGenerator
+      ↓
+Evidence
+      ↓
+Evidence validation
+```
+
+### Test Identity
+
+The automated regression scenarios use:
+
+```text
+test_id = TC-003
+```
+
+TC-001 remains the original diagnostic-authorization security test and defines the established security property.
+
+TC-003 verifies that this established property remains preserved through regression execution. The regression tests therefore use their own `SecurityTestCase` instances rather than reusing the TC-001 test definition as the regression test object.
+
+### Verification
+
+The dedicated regression suite was executed with:
+
+```text
+pytest .\04_tests\test_security_regression.py -v
 ```
 
 Result:
 
 ```text
-38 passed
+7 passed
+```
+
+The complete pytest suite was subsequently executed with:
+
+```text
+pytest -v
+```
+
+Result:
+
+```text
+41 passed
+```
+
+The regression suite therefore verifies both security behavior and the correctness of the generated regression Evidence.
+
+Phase 9 does not implement historical evidence comparison, baseline management, generalized regression orchestration, automated finding ingestion, remediation tracking, or CI/CD integration.
+
+---
+
+## Complete Test Suite
+
+The complete suite was executed from the project root with:
+
+```text
+pytest -v
+```
+
+Result:
+
+```text
+41 passed
 ```
 
 Current test distribution:
@@ -857,19 +997,19 @@ Current test distribution:
 04_tests/test_ecu_simulator.py: 6
 04_tests/test_evidence.py: 14
 04_tests/test_foundation.py: 1
-04_tests/test_test_runner.py: 4
+04_tests/test_security_regression.py: 7
 04_tests/test_tc001_diagnostic_authorization.py: 4
 04_tests/test_tc002_message_validation.py: 5
-04_tests/test_security_regression.py: 4
+04_tests/test_test_runner.py: 4
 ```
 
 Total:
 
 ```text
-38 tests
+41 tests
 ```
 
-The complete suite verifies that the current implementation integrates the ECU simulation, security-test architecture, Evidence Framework, TC-001, TC-002, and TC-003 without regressions.
+The complete suite verifies the current integration of the ECU simulation, security-test architecture, Evidence Framework, TC-001, TC-002, and automated TC-003 regression scenarios.
 
 The test count reflects the current repository state and is not treated as a permanent project invariant.
 
@@ -877,16 +1017,17 @@ The test count reflects the current repository state and is not treated as a per
 
 # Current Quality Gate
 
-Phase 7 verification confirms:
+Phase 9 verification confirms:
 
 * TC-001 is implemented and verified
 * TC-002 is implemented and verified
 * TC-003 regression workflow tests are implemented and verified
+* automated TC-003 regression scenarios are implemented and verified
 * 4 TC-001 tests pass
 * 5 TC-002 tests pass
-* 4 TC-003 regression workflow tests pass
+* 7 automated TC-003 regression tests pass
 * the complete pytest suite passes
-* all 38 current tests pass
+* all 41 current tests pass
 * Phase-2 ECU tests remain passing
 * Phase-3 architecture tests remain passing
 * Phase-4 Evidence tests remain passing
@@ -894,11 +1035,16 @@ Phase 7 verification confirms:
 * controlled vulnerable authorization behavior remains reproducible
 * the secure retest confirms `ACCESS_DENIED` for unauthorized protected access
 * authorized protected access remains available
-* regression evidence is generated and validated
+* invalid messages are rejected
+* unsupported operations are rejected distinctly
+* out-of-range boundary input is rejected
+* blocked ECU state prevents protected operations
+* regression evidence is generated from the executed TestResult
+* regression evidence contains the expected execution context
+* regression evidence is explicitly validated with `evidence.validate()`
 * expected and actual evidence values remain consistent
-* unsupported operations are distinguished from invalid requests
-* parameter boundary validation is enforced
-* boolean parameter values are rejected
+* no separate regression-specific Evidence model was introduced
+* no new ECU communication layer or target abstraction was introduced
 * no real automotive communication was introduced
 
 ### Phase-8 Documentation Status
@@ -915,11 +1061,29 @@ Phase 8 verification confirms:
 * authorized behavior remains documented as preserved
 * SEC-002 does not claim a demonstrated vulnerability
 * SEC-002 documents the absence of a reproduced security-relevant deviation
-* the finding documentation does not introduce a Phase-9 regression suite
+* the finding documentation does not implement generalized finding management
 * simulation and safety boundaries are explicitly documented
-* the Phase-7 implementation and regression workflow remain unchanged
+* the Phase-7 implementation and regression workflow remain preserved
 
-**Current result: Phase-7 implementation and verification complete. Phase-8 implementation, documentation, verification, and testing complete.**
+### Phase-9 Regression Status
+
+Phase 9 verification confirms:
+
+* automated regression scenarios are implemented
+* each regression scenario uses an isolated secure ECU instance
+* secure unauthorized protected access remains denied
+* secure authorized protected access remains available
+* invalid messages are rejected
+* unsupported operations are distinguished from invalid requests
+* boundary validation is enforced
+* blocked ECU state is handled as expected
+* regression Evidence is generated from the executed TestResult
+* regression Evidence is checked for expected execution context
+* generated Evidence is validated through `evidence.validate()`
+* the dedicated regression suite passes all 7 tests
+* the complete pytest suite passes all 41 current tests
+
+**Current result: Phase-7 regression workflow, Phase-8 finding documentation, and Phase-9 automated regression implementation and verification are complete.**
 
 Remaining activity:
 
@@ -947,7 +1111,7 @@ TC-003 Regression Workflow Verification
       ↓
 Example Finding Documentation
       ↓
-Automated Verification
+Automated Regression Verification
 ```
 
 The current implementation supports:
@@ -969,6 +1133,8 @@ The current implementation supports:
 * structured SEC-001 security finding documentation
 * structured SEC-002 assessment documentation
 * traceability between test results, evidence, and finding documentation
+* isolated regression test scenarios
+* automated verification of established security properties
 
 ---
 
@@ -1010,7 +1176,6 @@ The following capabilities are not implemented in the current phase:
 Planned sequence:
 
 ```text
-Phase 9  → pytest Regression Suite
 Phase 10 → CI/CD
 Phase 11 → End-to-End Assessment
 Phase 12 → Professional Documentation
@@ -1022,30 +1187,29 @@ Phase 14 → Recruiter / Interview Review
 
 # Documentation References
 
-| Document                                           | Purpose                                                       |
+| Document | Purpose |
 | -------------------------------------------------- | ------------------------------------------------------------- |
-| `README.md`                                        | Project overview, scope, architecture, and development phases |
-| `PROJECT_STATUS.md`                                | Current implementation and verification status                |
-| `ARCHITECTURE_DECISIONS.md`                        | Architectural decisions and rationale                         |
-| `docs/01_architecture.md`                          | Detailed architecture                                         |
-| `docs/02_methodology.md`                           | Security-testing methodology                                  |
-| `docs/03_evidence-format.md`                       | Evidence Framework and evidence format                        |
-| `docs/04_end-to-end-assessment-case.md`            | End-to-end assessment structure                               |
-| `01_threat_model/01_attack_surface.md`             | Modeled attack surface                                        |
-| `02_test_cases/TC-001-diagnostic-authorization.md` | TC-001 security-test specification                            |
-| `02_test_cases/TC-002-message-validation.md`       | TC-002 security-test specification                            |
+| `README.md` | Project overview, scope, architecture, and development phases |
+| `PROJECT_STATUS.md` | Current implementation and verification status |
+| `ARCHITECTURE_DECISIONS.md` | Architectural decisions and rationale |
+| `docs/01_architecture.md` | Detailed architecture |
+| `docs/02_methodology.md` | Security-testing methodology |
+| `docs/03_evidence-format.md` | Evidence Framework and evidence format |
+| `docs/04_end-to-end-assessment-case.md` | End-to-end assessment structure |
+| `01_threat_model/01_attack_surface.md` | Modeled attack surface |
+| `02_test_cases/TC-001-diagnostic-authorization.md` | TC-001 security-test specification |
+| `02_test_cases/TC-002-message-validation.md` | TC-002 security-test specification |
 
 ---
 
 # Current Phase
 
-**Phase 8 — Example Findings**
+**Phase 9 — pytest Regression Suite**
 
-Phase 8 is completed.
+Phase 9 is completed and locally verified.
+The project currently provides automated regression verification for established security properties.
+The automated regression suite verifies secure authorization behavior, message-validation behavior, ECU-state restrictions, boundary handling, and the correctness of generated regression Evidence.
+The existing Evidence Framework is now exercised directly within automated regression execution, including explicit Evidence validation through `evidence.validate()`.
+The complete local pytest suite currently passes 41 tests.
 
-The project currently documents the representative SEC-001 and SEC-002
-finding artifacts and their relationship to the existing security-test,
-TestResult, and Evidence Framework workflow.
-
-Phase 9 — pytest Regression Suite remains planned and has not been implemented
-as part of Phase 8.
+The next planned phase is Phase 10 — CI/CD.
