@@ -8,8 +8,9 @@ simulated ECU.
 
 The architecture was introduced in Phase 3 and extended in Phase 4 with the
 Evidence Framework. Phase 5 adds TC-001 — Diagnostic Authorization, Phase 6
-adds TC-002 — Message Validation, and Phase 7 adds the verified TC-003
-Regression Workflow.
+adds TC-002 — Message Validation, Phase 7 adds the verified TC-003 Regression
+Workflow, and Phase 8 adds structured example finding documentation for the
+security observations represented by TC-001 and TC-002.
 
 The architecture separates the following responsibilities:
 
@@ -49,7 +50,7 @@ Communication Layer
        |
        v
 ECU
-```
+````
 
 The project does not implement this real-world communication stack.
 
@@ -172,7 +173,7 @@ The current architecture consists of the following logical components:
               |
               v
 +---------------------------+
-|        ECUResponse        |
+|       ECUResponse         |
 +-------------+-------------+
               |
               v
@@ -200,10 +201,10 @@ component.
 
 The current implementation contains:
 
-- `test_id`
-- `description`
-- `request`
-- `expected_status`
+* `test_id`
+* `description`
+* `request`
+* `expected_status`
 
 The test case defines the request that is sent to the target and the response
 status that is expected for the defined security scenario.
@@ -280,12 +281,12 @@ The Test Runner does not access internal ECU state.
 
 It does not implement:
 
-- ECU security policy
-- authorization decisions
-- security finding management
-- evidence storage
-- regression orchestration
-- CI/CD
+* ECU security policy
+* authorization decisions
+* security finding management
+* evidence storage
+* regression orchestration
+* CI/CD
 
 The Test Runner is responsible for executing and evaluating the security
 test, not for implementing the security behavior being tested.
@@ -337,18 +338,18 @@ the resulting response.
 
 The adapter does not:
 
-- define security requirements
-- implement security-test logic
-- make authorization decisions
-- evaluate security findings
-- generate evidence
-- modify test results
+* define security requirements
+* implement security-test logic
+* make authorization decisions
+* evaluate security findings
+* generate evidence
+* modify test results
 
 The adapter therefore provides the boundary between the generic test
 execution layer and the concrete simulated target.
 
-This separation allows the test infrastructure to remain independent from
-the concrete ECU simulator implementation.
+This separation allows the test infrastructure to remain independent from the
+concrete ECU simulator implementation.
 
 ---
 
@@ -361,12 +362,12 @@ by the security-test architecture.
 
 Its responsibilities include:
 
-- maintaining the configured security mode
-- maintaining the authorization state
-- validating incoming requests
-- processing the requested operation
-- applying the configured security behavior
-- returning a deterministic `ECUResponse`
+* maintaining the configured security mode
+* maintaining the authorization state
+* validating incoming requests
+* processing the requested operation
+* applying the configured security behavior
+* returning a deterministic `ECUResponse`
 
 The simulator supports two security modes:
 
@@ -431,8 +432,8 @@ The simulator returns an `ECUResponse`.
 
 The current response model contains:
 
-- `status`
-- `operation`
+* `status`
+* `operation`
 
 The supported response statuses are:
 
@@ -500,15 +501,15 @@ execution in a structured format.
 
 The current Evidence model contains:
 
-- `test_id`
-- `timestamp`
-- `target`
-- `preconditions`
-- `input`
-- `expected`
-- `actual`
-- `result`
-- `notes`
+* `test_id`
+* `timestamp`
+* `target`
+* `preconditions`
+* `input`
+* `expected`
+* `actual`
+* `result`
+* `notes`
 
 The Evidence Framework operates after test execution:
 
@@ -582,8 +583,16 @@ security behavior.
 It does not automatically constitute a formal security vulnerability
 finding.
 
-Formal finding assessment, severity classification, root-cause management,
-and remediation tracking belong to later project phases.
+Phase 8 introduces structured example finding documentation based on existing
+test and evidence results.
+
+The finding examples document security requirement, observed behavior,
+security impact, exploitability, root cause where supported, recommendation,
+fix, retest, and regression relationship.
+
+Generalized finding management, automated finding ingestion, historical
+finding tracking, and generalized remediation management remain outside the
+current architecture.
 
 ---
 
@@ -865,6 +874,78 @@ preservation of the authorized behavior.
 
 ---
 
+## Phase-8 Security Finding Documentation
+
+Phase 8 introduces structured example findings based on the security-test and
+evidence results already established by TC-001 and TC-002.
+
+The finding documentation does not introduce a new execution layer.
+
+The relationship is:
+
+```text
+Security Requirement
+       |
+       v
+Security Test
+       |
+       v
+Test Execution
+       |
+       v
+Evidence
+       |
+       v
+Example Finding
+       |
+       v
+Root Cause / Recommendation / Fix / Retest
+       |
+       v
+Regression Relationship
+```
+
+For SEC-001, the finding documents the controlled vulnerable authorization
+behavior reproduced by TC-001:
+
+```text
+TC-001
+Expected = ACCESS_DENIED
+Actual   = ACCESS_GRANTED
+Result   = FAIL
+        |
+        v
+SEC-001
+Unauthorized access to protected diagnostic operation
+```
+
+The root cause is traced to the deliberate vulnerable branch in the simulated
+ECU implementation.
+
+For SEC-002, the finding documentation records that the TC-002 validation
+scenarios did not reproduce a security-relevant deviation:
+
+```text
+TC-002
+Expected == Actual
+        |
+        v
+No security-relevant deviation reproduced
+        |
+        v
+SEC-002 example documentation
+```
+
+SEC-002 therefore does not represent a demonstrated vulnerability.
+
+Phase 8 does not introduce a finding-management engine, database, automated
+finding ingestion, or generalized vulnerability lifecycle.
+
+The finding files are structured documentation artifacts that consume the
+results of the existing test and evidence workflow.
+
+---
+
 ## Security Test Result vs. Test Framework Result
 
 The TC-003 lifecycle demonstration distinguishes between the security test
@@ -997,9 +1078,9 @@ Deterministic behavior is a core requirement of the current architecture.
 
 For the same:
 
-- security mode
-- authorization state
-- request
+* security mode
+* authorization state
+* request
 
 the simulator produces the same response.
 
@@ -1008,11 +1089,11 @@ makes test results reproducible.
 
 The current architecture does not depend on:
 
-- physical hardware
-- vehicle networks
-- external services
-- network access
-- random test data
+* physical hardware
+* vehicle networks
+* external services
+* network access
+* random test data
 
 The Evidence Framework generates a runtime timestamp. The timestamp is
 therefore expected to differ between executions.
@@ -1066,15 +1147,19 @@ The Evidence Framework also does not access internal ECU state.
 
 This separation provides clear boundaries between:
 
-- what is being tested
-- how the test is executed
-- how the target behaves
-- how the result is evaluated
-- how the observation is recorded
+* what is being tested
+* how the test is executed
+* how the target behaves
+* how the result is evaluated
+* how the observation is recorded
 
 The TC-003 regression workflow follows the same separation. Regression
 evaluation operates on the executed test result and does not require direct
 access to internal ECU implementation details.
+
+Phase 8 follows the same boundary. Example finding documentation consumes
+existing test and evidence results but does not modify target behavior, test
+execution, or evidence generation.
 
 ---
 
@@ -1084,13 +1169,12 @@ The current implementation is completely local and simulated.
 
 It does not provide:
 
-- real CAN communication
-- real UDS communication
-- physical ECU access
-- vehicle-network communication
-- production-system testing
-- OEM-system integration
-- real penetration testing
+* real CAN communication
+* real UDS communication
+* physical ECU access
+* vehicle-network communication
+* production-system testing
+* OEM-system integration
 
 The `ECUTarget` abstraction provides a software boundary for target
 interaction, but no real-world communication adapter is currently implemented.
@@ -1111,7 +1195,7 @@ Conceptually:
                        +------------------+
                        |                  |
                        v                  v
-                 ECUSimulator       Future Target
+                ECUSimulator       Future Target
                        |                  |
                        +--------+---------+
                                 |
@@ -1140,8 +1224,7 @@ model.
 
 ## Phase Boundaries
 
-Phase 6 includes TC-002 Message Validation in addition to the previously
-verified TC-001 Diagnostic Authorization test.
+Phase 6 includes TC-002 Message Validation in addition to the previously verified TC-001 Diagnostic Authorization test.
 
 Phase 7 adds the TC-003 Regression Workflow verification.
 
@@ -1169,6 +1252,12 @@ Evidence validation
 Authorized-behavior verification
 ```
 
+Phase 8 adds finding documentation as a documentation layer on top of the
+existing test and evidence architecture.
+
+The Phase-8 finding layer does not change the target, test-runner, adapter, or
+evidence architecture.
+
 The architecture does not yet provide:
 
 ```text
@@ -1192,13 +1281,13 @@ Phase 1 established the project and development foundation.
 
 It introduced:
 
-- Python project configuration
-- pytest-based verification
-- repository structure
-- documentation structure
-- project scope
-- initial architectural decisions
-- deterministic local development environment
+* Python project configuration
+* pytest-based verification
+* repository structure
+* documentation structure
+* project scope
+* initial architectural decisions
+* deterministic local development environment
 
 ### Phase 2 — ECU Simulation
 
@@ -1206,13 +1295,13 @@ Phase 2 implemented the deterministic simulated ECU.
 
 It introduced:
 
-- secure mode
-- vulnerable mode
-- authorization state
-- protected operation handling
-- request validation
-- deterministic response statuses
-- structured ECU responses
+* secure mode
+* vulnerable mode
+* authorization state
+* protected operation handling
+* request validation
+* deterministic response statuses
+* structured ECU responses
 
 ### Phase 3 — Security Test Architecture
 
@@ -1220,11 +1309,11 @@ Phase 3 separated security-test execution from the simulated ECU.
 
 It introduced:
 
-- `SecurityTestCase`
-- `SecurityTestRunner`
-- `TestResult`
-- `ECUTarget`
-- `ECUAdapter`
+* `SecurityTestCase`
+* `SecurityTestRunner`
+* `TestResult`
+* `ECUTarget`
+* `ECUAdapter`
 
 The resulting architecture established the target boundary used by later
 security tests.
@@ -1235,13 +1324,13 @@ Phase 4 introduced structured evidence generation.
 
 It added:
 
-- the Evidence model
-- mandatory evidence fields
-- evidence validation
-- `PASS` / `FAIL` semantics
-- runtime timestamps
-- JSON serialization
-- evidence generation from `TestResult`
+* the Evidence model
+* mandatory evidence fields
+* evidence validation
+* `PASS` / `FAIL` semantics
+* runtime timestamps
+* JSON serialization
+* evidence generation from `TestResult`
 
 The Evidence Framework was deliberately kept separate from the ECU and Test
 Runner.
@@ -1293,13 +1382,13 @@ regression lifecycle for the diagnostic authorization security property.
 
 The workflow includes:
 
-- controlled reproduction of the original vulnerable behavior
-- preservation of the original security expectation
-- secure retest of the same unauthorized condition
-- expected-versus-actual evaluation through `SecurityTestRunner`
-- generation of regression evidence from the executed result
-- validation of the generated evidence
-- verification that authorized behavior remains available
+* controlled reproduction of the original vulnerable behavior
+* preservation of the original security expectation
+* secure retest of the same unauthorized condition
+* expected-versus-actual evaluation through `SecurityTestRunner`
+* generation of regression evidence from the executed result
+* validation of the generated evidence
+* verification that authorized behavior remains available
 
 Phase 7 therefore extends the existing test and evidence architecture without
 introducing a separate communication or target layer.
@@ -1307,6 +1396,30 @@ introducing a separate communication or target layer.
 The implementation is a controlled local regression workflow. Generalized
 finding management, historical regression comparison, regression orchestration,
 and CI/CD remain outside the current architecture.
+
+### Phase 8 — Example Findings
+
+Phase 8 introduces structured security finding documentation based on the
+existing TC-001, TC-002, and TC-003 test and evidence workflow.
+
+It introduces:
+
+* SEC-001 example finding documentation for the controlled TC-001
+  authorization deviation
+* SEC-002 example finding documentation for the TC-002 validation assessment
+  where no security-relevant deviation was reproduced
+* structured security impact documentation
+* qualitative exploitability assessment
+* root-cause documentation where supported by implementation evidence
+* recommendation and fix documentation
+* retest documentation
+* regression-test relationship documentation
+
+Phase 8 does not introduce a generalized finding-management or vulnerability
+tracking system.
+
+The finding documents remain controlled portfolio documentation artifacts
+derived from the existing security-test and evidence workflow.
 
 ---
 
@@ -1340,8 +1453,8 @@ The current test distribution is:
 
 ```text
 ECU Simulation Tests:              6
-Evidence Framework Tests:         14
-Foundation Tests:                  1
+Evidence Framework Tests:        14
+Foundation Tests:                 1
 Security Test Architecture:       4
 TC-001 Diagnostic Authorization:  4
 TC-002 Message Validation:        5
@@ -1359,39 +1472,42 @@ second target or execution abstraction.
 
 The current implementation provides:
 
-- deterministic ECU simulation
-- secure and vulnerable security modes
-- authorization handling
-- protected operation handling
-- request validation
-- target abstraction
-- security-test execution
-- expected-versus-actual evaluation
-- structured test results
-- structured evidence
-- evidence validation
-- JSON serialization
-- TC-001 Diagnostic Authorization
-- TC-002 Message Validation
-- TC-003 Regression Workflow
-- controlled regression evidence generation
-- authorized-behavior verification during the TC-003 regression workflow
+* deterministic ECU simulation
+* secure and vulnerable security modes
+* authorization handling
+* protected operation handling
+* request validation
+* target abstraction
+* security-test execution
+* expected-versus-actual evaluation
+* structured test results
+* structured evidence
+* evidence validation
+* JSON serialization
+* TC-001 Diagnostic Authorization
+* TC-002 Message Validation
+* TC-003 Regression Workflow
+* controlled regression evidence generation
+* authorized-behavior verification during the TC-003 regression workflow
+* SEC-001 example finding documentation
+* SEC-002 example finding documentation
+* finding documentation linked to existing test and evidence results
 
 The following capabilities are outside the current implementation:
 
-- real CAN communication
-- real UDS communication
-- physical ECU communication
-- vehicle-network communication
-- production-system testing
-- OEM-system integration
-- formal vulnerability management
-- severity management
-- CVSS calculation
-- generalized security-finding management
-- historical regression comparison
-- generalized regression orchestration
-- CI/CD integration
+* real CAN communication
+* real UDS communication
+* physical ECU communication
+* vehicle-network communication
+* production-system testing
+* OEM-system integration
+* generalized security-finding management
+* automated finding ingestion
+* historical finding tracking
+* CVSS calculation
+* historical regression comparison
+* generalized regression orchestration
+* CI/CD integration
 
 These capabilities are reserved for later project phases.
 
@@ -1477,7 +1593,7 @@ TC-002
 TC-003 Regression Workflow
        |
        v
-Future Security Finding
+Phase-8 Example Findings
        |
        v
 Future Generalized Regression
@@ -1516,3 +1632,8 @@ The current Phase-7 regression implementation is intentionally limited to the
 diagnostic authorization security property established by TC-001. It does
 not constitute a generalized security finding or regression management
 platform.
+
+Phase 8 adds structured example finding documentation as a documentation layer
+on top of the existing test and evidence workflow. The Phase-8 findings are
+controlled documentation artifacts and do not constitute a generalized
+security finding management or vulnerability tracking platform.

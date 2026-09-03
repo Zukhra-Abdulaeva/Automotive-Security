@@ -1,0 +1,283 @@
+# SEC-002
+
+## Title
+
+No security-relevant deviation reproduced in diagnostic message validation
+
+## Severity
+
+Low
+
+## Asset
+
+Protected Diagnostic Operation and integrity of diagnostic request processing
+
+## Affected Component
+
+`security_lab.ecu_simulator.ECUSimulator.handle_request()`
+
+The assessment covers the request-validation path used by TC-002.
+
+This entry documents the result of the validation assessment as a Phase-8 example. It does not represent a demonstrated security vulnerability.
+
+## Security Requirement
+
+Invalid, unsupported, or impermissible diagnostic requests shall be rejected before the protected diagnostic operation is granted.
+
+## Description
+
+TC-002 evaluates whether the simulated ECU validates diagnostic input and state conditions before granting access to the protected operation.
+
+The implementation explicitly validates:
+
+1. Request structure.
+2. Operation presence and type.
+3. Supported operation.
+4. Parameter structure.
+5. Parameter type and permitted range.
+6. ECU state.
+
+The implementation therefore provides deterministic rejection behavior for the invalid and impermissible scenarios defined by TC-002.
+
+No security-relevant deviation was reproduced in the documented scenarios.
+
+This entry is retained as a Phase-8 example to demonstrate documentation of an assessment result where the evaluated behavior conforms to the security requirement.
+
+## Threat Model
+
+- **Asset:** Protected Diagnostic Operation and integrity of diagnostic request processing
+- **Threat Actor:** Diagnostic requester
+- **Attack Surface:** Simulated diagnostic request interface
+- **Security Property:** Invalid, unsupported, or impermissible requests must be rejected before the protected operation is granted.
+- **Potential Impact:** Incorrect processing of malformed or impermissible diagnostic requests within the simulation.
+- **Assumption:** The simulated ECU is responsible for validating the diagnostic request and current ECU state.
+
+The assessment is restricted to the controlled simulation.
+
+## Preconditions
+
+TC-002 defines the following validation scenarios:
+
+```text
+Scenario A
+Input: {"parameters": {}}
+Expected: INVALID_REQUEST
+
+Scenario B
+Input: {"operation": "UNSUPPORTED_OPERATION"}
+Expected: UNSUPPORTED_OPERATION
+
+Scenario C
+Input: {"operation": "PROTECTED_OPERATION", "parameters": {"value": 256}}
+Expected: REQUEST_REJECTED
+
+Scenario D
+Authorization: true
+State: BLOCKED
+Input: {"operation": "PROTECTED_OPERATION", "parameters": {"value": 100}}
+Expected: REQUEST_REJECTED
+
+Boundary 1
+Authorization: true
+Input: {"operation": "PROTECTED_OPERATION", "parameters": {"value": 0}}
+Expected: ACCESS_GRANTED
+
+Boundary 2
+Authorization: true
+Input: {"operation": "PROTECTED_OPERATION", "parameters": {"value": 255}}
+Expected: ACCESS_GRANTED
+````
+
+The validation range implemented by the simulator is:
+
+```text
+Minimum parameter value: 0
+Maximum parameter value: 255
+Supported operation: PROTECTED_OPERATION
+Supported states: READY, BLOCKED
+```
+
+## Reproduction Steps
+
+1. Initialize the secure ECU simulator.
+2. Execute the TC-002 validation scenarios.
+3. Record the returned response status for each scenario.
+4. Compare each actual status with the expected status.
+5. Confirm that invalid and impermissible requests are rejected and valid boundary values remain accepted when authorization is present.
+
+## Expected Behavior
+
+The expected response depends on the validation condition:
+
+```text
+Malformed request -> INVALID_REQUEST
+Unsupported operation -> UNSUPPORTED_OPERATION
+Out-of-range parameter -> REQUEST_REJECTED
+Protected operation while ECU is BLOCKED -> REQUEST_REJECTED
+Authorized value 0 -> ACCESS_GRANTED
+Authorized value 255 -> ACCESS_GRANTED
+```
+
+## Actual Behavior
+
+The supplied implementation follows the validation sequence defined by TC-002:
+
+```text
+Request structure
+    |
+    v
+Operation validation
+    |
+    v
+Supported operation check
+    |
+    v
+Parameter validation
+    |
+    v
+ECU state validation
+    |
+    v
+Authorization / operation access
+```
+
+The documented TC-002 scenarios therefore produce the expected response classes.
+
+The user-provided project test execution reports 38 passing tests, including the TC-002 test cases.
+
+## Evidence
+
+The existing Evidence Framework is used for TC-002 results.
+
+Representative evidence for the out-of-range parameter scenario:
+
+```json
+{
+  "test_id": "TC-002",
+  "timestamp": "<generated at test execution>",
+  "target": "simulated-ecu",
+  "preconditions": {
+    "authorization": false,
+    "mode": "SECURE",
+    "state": "READY"
+  },
+  "input": {
+    "operation": "PROTECTED_OPERATION",
+    "parameters": {
+      "value": 256
+    }
+  },
+  "expected": "REQUEST_REJECTED",
+  "actual": "REQUEST_REJECTED",
+  "result": "PASS",
+  "notes": "Out-of-range parameter was rejected before protected operation access was granted."
+}
+```
+
+The timestamp is generated by the existing evidence implementation at test execution time and is therefore represented as a runtime value in this example.
+
+## Security Impact
+
+No security-relevant impact was demonstrated by the assessed TC-002 scenarios.
+
+Invalid requests, unsupported operations, out-of-range parameters, and blocked-state requests are rejected according to the expected behavior.
+
+The simulation does not model real vehicle control, real ECU access, production diagnostic networks, or physical safety functions. No impact beyond the tested simulated request-processing behavior is claimed.
+
+## Exploitability
+
+No exploitable weakness was reproduced in the assessed validation scenarios.
+
+* **Preconditions:** Access to the simulated diagnostic request interface.
+* **Required access:** Ability to submit a diagnostic request to the simulation.
+* **Required knowledge:** Knowledge of the request structure and supported operation.
+* **Complexity:** Low for executing the validation scenarios.
+* **Repeatability:** Deterministic for the implemented input-validation rules.
+
+These characteristics do not represent an attacker assessment of a real automotive system.
+
+## Root Cause
+
+No security-relevant root cause was established because TC-002 did not reproduce a security deviation.
+
+The implementation contains explicit validation controls for request structure, supported operation, parameter structure and range, and ECU state.
+
+Assigning a vulnerability root cause without a reproduced deviation would not be supported by the available evidence.
+
+## Recommendation
+
+Maintain the existing validation sequence and its deterministic response behavior.
+
+Future changes to the request-processing implementation should preserve the following properties:
+
+* Malformed requests are rejected.
+* Unsupported operations are rejected.
+* Invalid parameter values are rejected.
+* Requests are rejected while the ECU is in the blocked state.
+* Valid boundary values remain accepted when authorization requirements are satisfied.
+
+Changes to these controls should be covered by corresponding regression tests.
+
+## Fix
+
+No corrective fix is required for the behavior assessed by TC-002 because no security-relevant deviation was reproduced.
+
+The existing validation implementation is retained as the expected secure behavior.
+
+## Retest
+
+The same TC-002 scenarios should be executed after future changes to the request-validation implementation.
+
+The required retest expectations are:
+
+```text
+Malformed input
+Expected: INVALID_REQUEST
+
+Unsupported operation
+Expected: UNSUPPORTED_OPERATION
+
+Parameter value 256
+Expected: REQUEST_REJECTED
+
+Protected operation while BLOCKED
+Expected: REQUEST_REJECTED
+
+Authorized parameter value 0
+Expected: ACCESS_GRANTED
+
+Authorized parameter value 255
+Expected: ACCESS_GRANTED
+```
+
+The user-provided project execution reports:
+
+```text
+pytest -q
+...................................... [100%]
+```
+
+This result corresponds to 38 passing tests as reported from the project environment. The test execution has not been independently executed in the current environment.
+
+## Regression Test
+
+TC-002 provides deterministic regression-relevant scenarios for diagnostic request validation.
+
+The documented scenarios cover:
+
+* Malformed request handling.
+* Unsupported operation handling.
+* Parameter boundary enforcement.
+* Blocked-state enforcement.
+* Valid lower-bound behavior.
+* Valid upper-bound behavior.
+
+The centralized regression suite and CI/CD integration are outside the scope of Phase 8.
+
+## Status
+
+Closed — no security-relevant deviation reproduced.
+
+No vulnerability is claimed by this example finding.
+
+The implementation and test behavior described above are based on the supplied project contents and the user-provided test execution result. Independent repository and test execution verification is not available in the current environment.

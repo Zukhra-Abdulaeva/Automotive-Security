@@ -56,6 +56,8 @@ ECU Response
 Test Result
         ↓
 Structured Evidence
+        ↓
+Example Finding Documentation
 ```
 
 The project is developed incrementally. Each phase adds functionality on top of the previously verified architecture.
@@ -64,83 +66,120 @@ The project is developed incrementally. Each phase adds functionality on top of 
 
 # Current Phase
 
-## Phase 7 — TC-003 Regression Workflow
+## Phase 8 — Example Findings
 
-**Status: Implemented and locally verified**
+**Status: In Progress**
 
-Phase 7 extends the verified TC-001 and TC-002 security-test architecture with a controlled regression workflow for the diagnostic authorization security property.
+Phase 8 adds structured example security finding documentation to the
+established TC-001, TC-002, TC-003, and Evidence Framework workflow.
 
-The implementation is provided by:
+Phase 7 remains the verified regression-workflow baseline and is not modified
+by Phase 8.
 
-```text
-04_tests/test_security_regression.py
-```
+# What Phase 8 Adds
 
-The verified lifecycle is:
-
-```text
-Controlled Vulnerable Behavior
-        ↓
-Original Security Condition
-        ↓
-Secure Retest
-        ↓
-Expected vs Actual
-        ↓
-Regression Evidence
-        ↓
-Evidence Validation
-        ↓
-Authorized Behavior Verification
-```
-
-TC-003 reuses the existing TC-001 security-test definition. The pytest functions are named `test_tc003_*`, while the underlying `SecurityTestCase.test_id` remains `TC-001`.
-
-This reflects the architectural distinction between the TC-003 workflow and the TC-001 security property being regression-tested.
-
----
-
-# What Phase 7 Adds
-
-Phase 7 verifies the following regression workflow:
-
-1. reproduce the controlled vulnerable behavior
-2. preserve the original security expectation
-3. execute the same unauthorized condition against the secure ECU
-4. compare expected and actual behavior through `SecurityTestRunner`
-5. generate structured Evidence from the executed `TestResult`
-6. validate the generated Evidence
-7. verify that authorized protected behavior remains functional
-
-The controlled vulnerable-state demonstration produces:
+Phase 8 documents two representative security assessment results:
 
 ```text
-Expected: ACCESS_DENIED
-Actual:   ACCESS_GRANTED
-TestResult: FAIL
+TC-001
+  ↓
+Evidence
+  ↓
+SEC-001
 ```
 
-This is intentional. The pytest test verifies that the security deviation is correctly detected.
-
-The secure regression retest produces:
+and:
 
 ```text
-Expected: ACCESS_DENIED
-Actual:   ACCESS_DENIED
-TestResult: PASS
+TC-002
+  ↓
+Evidence
+  ↓
+SEC-002
 ```
 
-The authorized functional check produces:
+The findings are:
+
+| Finding   | Source   | Result                                        |
+| --------- | -------- | --------------------------------------------- |
+| `SEC-001` | `TC-001` | Controlled authorization deviation reproduced |
+| `SEC-002` | `TC-002` | No security-relevant deviation reproduced     |
+
+### SEC-001
+
+SEC-001 documents the controlled vulnerable authorization condition:
 
 ```text
-Expected: ACCESS_GRANTED
-Actual:   ACCESS_GRANTED
-TestResult: PASS
+Authorization = false
+        +
+PROTECTED_OPERATION
+        ↓
+Expected = ACCESS_DENIED
+Actual   = ACCESS_GRANTED
+Result   = FAIL
 ```
 
-Phase 7 therefore demonstrates the regression lifecycle within the existing deterministic simulation architecture.
+The finding documents the observed behavior, security impact within the
+simulation, exploitability characteristics, root cause, recommendation,
+simulated fix, retest, and regression relationship.
 
-It does not implement generalized security finding management, automatic finding ingestion, automatic regression-test generation, historical result comparison, or CI/CD orchestration.
+The root cause is traceable to the deliberate vulnerable branch in the
+simulated ECU.
+
+### SEC-002
+
+SEC-002 documents the TC-002 message-validation assessment.
+
+The assessed scenarios include:
+
+```text
+Malformed request
+Unsupported operation
+Out-of-range parameter
+Blocked ECU state
+Valid boundary value 0
+Valid boundary value 255
+```
+
+The implementation produces the expected deterministic response for these
+scenarios.
+
+No security-relevant deviation was reproduced.
+
+SEC-002 is therefore an example of structured assessment documentation and
+does not represent a demonstrated vulnerability.
+
+### Phase-8 Scope Boundary
+
+Phase 8 introduces documentation artifacts only.
+
+It does not introduce:
+
+* automated finding ingestion
+* finding database functionality
+* historical finding tracking
+* automated severity calculation
+* CVSS calculation
+* customer security reporting
+* generalized remediation management
+* the Phase-9 centralized regression suite
+* CI/CD integration
+
+The existing Evidence Framework remains unchanged.
+
+The architecture is:
+
+```text
+Security Test
+      ↓
+Test Result
+      ↓
+Evidence
+      ↓
+Finding Assessment
+      ↓
+Example Finding
+```
 
 ---
 
@@ -198,6 +237,7 @@ TC-001 evaluates this hypothesis using:
 
 ```text
 authorization = false
+
 PROTECTED_OPERATION
 ```
 
@@ -217,8 +257,11 @@ The authorized positive case is also verified:
 
 ```text
 authorization = true
+
 PROTECTED_OPERATION
+
         ↓
+
 ACCESS_GRANTED
 ```
 
@@ -229,7 +272,7 @@ ACCESS_GRANTED
 TC-001 uses the architecture established in Phases 3 and 4.
 
 ```text
-TC-001
+TC-001 Diagnostic Authorization
   ↓
 SecurityTestRunner
   ↓
@@ -248,15 +291,15 @@ The test does not access internal ECU implementation details directly.
 
 The responsibilities are separated as follows:
 
-| Component | Responsibility |
-| --- | --- |
-| `SecurityTestCase` | Defines the security scenario and expected behavior |
+| Component            | Responsibility                                               |
+| -------------------- | ------------------------------------------------------------ |
+| `SecurityTestCase`   | Defines the security scenario and expected behavior          |
 | `SecurityTestRunner` | Executes the test and evaluates expected vs. actual behavior |
-| `ECUTarget` | Defines the target interface |
-| `ECUAdapter` | Connects the target interface to the simulator |
-| `ECUSimulator` | Implements the simulated ECU behavior |
-| `TestResult` | Represents the evaluated execution result |
-| `Evidence` | Records structured execution evidence |
+| `ECUTarget`          | Defines the target interface                                 |
+| `ECUAdapter`         | Connects the target interface to the simulator               |
+| `ECUSimulator`       | Implements the simulated ECU behavior                        |
+| `TestResult`         | Represents the evaluated execution result                    |
+| `Evidence`           | Records structured execution evidence                        |
 
 This keeps the security test independent from the concrete ECU implementation.
 
@@ -266,12 +309,12 @@ This keeps the security test independent from the concrete ECU implementation.
 
 TC-001 contains four verification scenarios:
 
-| Scenario | ECU Mode | Authorization | Operation | Expected Result |
-| --- | --- | ---: | --- | --- |
-| Unauthorized access | Secure | `false` | `PROTECTED_OPERATION` | `ACCESS_DENIED` |
-| Authorized access | Secure | `true` | `PROTECTED_OPERATION` | `ACCESS_GRANTED` |
-| Vulnerable unauthorized access | Vulnerable | `false` | `PROTECTED_OPERATION` | `ACCESS_GRANTED` |
-| Invalid request | Controlled simulation | — | Invalid operation/input | `INVALID_REQUEST` |
+| Scenario                       | ECU Mode              | Authorization | Operation               | Expected Result   |
+| ------------------------------ | --------------------- | ------------: | ----------------------- | ----------------- |
+| Unauthorized access            | Secure                |       `false` | `PROTECTED_OPERATION`   | `ACCESS_DENIED`   |
+| Authorized access              | Secure                |        `true` | `PROTECTED_OPERATION`   | `ACCESS_GRANTED`  |
+| Vulnerable unauthorized access | Vulnerable            |       `false` | `PROTECTED_OPERATION`   | `ACCESS_GRANTED`  |
+| Invalid request                | Controlled simulation |             — | Invalid operation/input | `INVALID_REQUEST` |
 
 The third scenario is the security-relevant case.
 
@@ -279,7 +322,9 @@ When evaluated against the security requirement, it produces:
 
 ```text
 Expected = ACCESS_DENIED
+
 Actual   = ACCESS_GRANTED
+
 Result   = FAIL
 ```
 
@@ -386,9 +431,11 @@ The Evidence Framework evaluates the relationship between expected and actual be
 
 ```text
 PASS
+
 Expected behavior == Actual behavior
 
 FAIL
+
 Expected behavior != Actual behavior
 ```
 
@@ -396,6 +443,7 @@ For the vulnerable TC-001 scenario:
 
 ```text
 Expected = ACCESS_DENIED
+
 Actual   = ACCESS_GRANTED
 ```
 
@@ -431,6 +479,7 @@ Therefore:
 
 ```text
 Expected = ACCESS_DENIED
+
 Actual   = ACCESS_GRANTED
 ```
 
@@ -476,6 +525,7 @@ Unauthorized:
 
 ```text
 authorization = false
+
 PROTECTED_OPERATION
         ↓
 ACCESS_DENIED
@@ -485,6 +535,7 @@ Authorized:
 
 ```text
 authorization = true
+
 PROTECTED_OPERATION
         ↓
 ACCESS_GRANTED
@@ -595,12 +646,12 @@ The runner communicates with the target through `ECUTarget` instead of depending
 
 ### Phase 3 Verification
 
-| Test ID | Scenario | Expected | Actual | Result |
-| --- | --- | --- | --- | --- |
-| `TC-ARCH-001` | Unauthorized protected operation | `ACCESS_DENIED` | `ACCESS_DENIED` | PASS |
-| `TC-ARCH-002` | Authorized protected operation | `ACCESS_GRANTED` | `ACCESS_GRANTED` | PASS |
-| `TC-ARCH-003` | Invalid operation | `INVALID_REQUEST` | `INVALID_REQUEST` | PASS |
-| `TC-ARCH-004` | Vulnerable unauthorized protected operation | `ACCESS_GRANTED` | `ACCESS_GRANTED` | PASS |
+| Test ID       | Scenario                                    | Expected          | Actual            | Result |
+| ------------- | ------------------------------------------- | ----------------- | ----------------- | ------ |
+| `TC-ARCH-001` | Unauthorized protected operation            | `ACCESS_DENIED`   | `ACCESS_DENIED`   | PASS   |
+| `TC-ARCH-002` | Authorized protected operation              | `ACCESS_GRANTED`  | `ACCESS_GRANTED`  | PASS   |
+| `TC-ARCH-003` | Invalid operation                           | `INVALID_REQUEST` | `INVALID_REQUEST` | PASS   |
+| `TC-ARCH-004` | Vulnerable unauthorized protected operation | `ACCESS_GRANTED`  | `ACCESS_GRANTED`  | PASS   |
 
 ---
 
@@ -714,8 +765,11 @@ Boundary behavior:
 
 ```text
 -1    → REQUEST_REJECTED
+
 0     → accepted
+
 255   → accepted
+
 256   → REQUEST_REJECTED
 ```
 
@@ -787,6 +841,29 @@ The pytest test itself passes because it verifies that the security deviation is
 
 ---
 
+## Phase 8 — Example Findings
+
+Introduced:
+
+* structured `SEC-001` finding documentation
+* structured `SEC-002` assessment documentation
+* traceability from TC-001 and TC-002 to finding documentation
+* reproducible finding reproduction information
+* Evidence Framework-compatible evidence representation
+* root-cause documentation for the demonstrated SEC-001 deviation
+* simulated fix and retest documentation for SEC-001
+* regression relationship documentation without implementing the Phase-9
+  centralized regression suite
+
+SEC-001 documents the controlled authorization deviation reproduced by TC-001.
+
+SEC-002 documents the TC-002 validation assessment where no
+security-relevant deviation was reproduced.
+
+Phase 8 does not introduce generalized security finding management.
+
+---
+
 # Current Architecture
 
 The current architecture combines the verified capabilities of Phases 1–7:
@@ -816,6 +893,22 @@ Evidence
         ↓
 TC-003 Regression Workflow
 ```
+
+Phase-8 documentation layer:
+
+```text
+Evidence
+      ↓
+Finding Assessment
+      ↓
+SEC-001 / SEC-002 Example Finding
+```
+
+The Phase-8 documentation layer does not modify the execution path of the
+security-test architecture.
+
+It consumes existing TestResult and Evidence information and represents the
+assessment as a structured documentation artifact.
 
 The implementation separates the security requirement, test definition, execution mechanism, target implementation, and evidence representation.
 
@@ -929,11 +1022,17 @@ Current test distribution:
 
 ```text
 04_tests/test_ecu_simulator.py: 6
+
 04_tests/test_evidence.py: 14
+
 04_tests/test_foundation.py: 1
+
 04_tests/test_test_runner.py: 4
+
 04_tests/test_tc001_diagnostic_authorization.py: 4
+
 04_tests/test_tc002_message_validation.py: 5
+
 04_tests/test_security_regression.py: 4
 ```
 
@@ -1021,8 +1120,9 @@ automotive-security-regression-lab/
 │   └── test_security_regression.py
 │
 ├── 05_examples/
-│   └── .gitkeep
-│
+│   ├── .gitkeep
+│   ├── sample_finding_SEC-001.md
+│   └── sample_finding_SEC-002.md
 └── .github/
     └── workflows/
         └── .gitkeep
@@ -1078,21 +1178,30 @@ It must not be interpreted as evidence of a vulnerability in a real vehicle, ECU
 
 Phase 7 includes the TC-003 Regression Workflow in addition to the previously verified TC-001 Diagnostic Authorization and TC-002 Message Validation tests.
 
-The current regression implementation is specific to the diagnostic authorization security property established by TC-001.
+Phase 8 adds structured example finding documentation based on the existing
+security-test and Evidence Framework results.
 
-The following capabilities are not part of the current implementation:
+The Phase-8 documentation layer is limited to representative findings:
+
+```text
+SEC-001
+SEC-002
+```
+
+It does not introduce generalized finding management or modify the existing
+ECU, adapter, test runner, TestResult, or Evidence architecture.
+
+The following capabilities remain outside Phase 8:
 
 * generalized security finding management
 * automatic finding ingestion
 * formal vulnerability classification
-* severity management
+* automated severity calculation
 * CVSS calculation
 * customer security reporting
-* production impact assessment
 * generalized root-cause management
 * generalized remediation tracking
-* automatic regression-test generation
-* historical result comparison
+* historical finding comparison
 * generalized regression orchestration
 * CI/CD workflows
 * real ECU communication
@@ -1182,6 +1291,18 @@ These capabilities are reserved for later phases.
 * authorized-behavior verification
 * automated TC-003 workflow tests
 
+**Phase 8 — In Progress**
+
+* `SEC-001` structured security finding documentation
+* `SEC-002` structured assessment documentation
+* traceability to TC-001 and TC-002
+* Evidence-compatible finding evidence
+* documented root cause for the SEC-001 controlled deviation
+* documented simulated fix and retest for SEC-001
+* documented regression relationship
+* explicit distinction between demonstrated deviation and no-deviation
+  assessment
+
 ---
 
 # Current Verification State
@@ -1216,6 +1337,7 @@ The current verified regression behavior includes:
 
 ```text
 Controlled Vulnerable State
+
         ↓
 ACCESS_GRANTED without authorization
         ↓
@@ -1237,6 +1359,47 @@ PROTECTED_OPERATION
         ↓
 ACCESS_GRANTED
 ```
+
+Phase 8 documentation verification is separate from the existing automated
+test execution.
+
+The Phase-8 verification scope is:
+
+```text
+SEC-001
+    ↓
+TC-001
+    ↓
+Expected vs Actual
+    ↓
+Evidence
+    ↓
+Root Cause
+    ↓
+Fix
+    ↓
+Retest
+    ↓
+Regression Relationship
+```
+
+and:
+
+```text
+SEC-002
+    ↓
+TC-002
+    ↓
+Validation Scenarios
+    ↓
+Evidence
+    ↓
+No Security-Relevant Deviation Reproduced
+```
+
+The existing 38-test result remains evidence for the previously implemented
+test architecture and is not changed by the documentation-only Phase-8
+artifacts.
 
 ---
 
@@ -1269,6 +1432,23 @@ Reuse Test for Retest
         ↓
 Verify Regression Condition
 ```
+
+Phase 8 additionally demonstrates how the resulting assessment can be
+documented as a structured security finding artifact:
+
+```text
+Evidence
+    ↓
+Finding Assessment
+    ↓
+Security Finding Documentation
+```
+
+SEC-001 demonstrates documentation of a reproduced security-relevant
+deviation.
+
+SEC-002 demonstrates documentation of an assessment result where no
+security-relevant deviation was reproduced.
 
 The current implementation does not yet provide a generalized finding-management or regression platform.
 
@@ -1312,6 +1492,11 @@ It demonstrates:
 * simulated fix and retest methodology
 * regression workflow verification
 * architectural documentation
+* structured security finding documentation
+* traceability from security tests to findings
+* root-cause and retest documentation for a controlled finding
+* distinction between a reproduced security deviation and a no-deviation
+  assessment
 
 It does not represent:
 
@@ -1324,31 +1509,42 @@ It does not represent:
 
 ---
 
-# Next Phase
+# Current Phase
 
 ## Phase 8 — Example Findings
 
-The next phase will introduce representative security findings based on the established test and evidence workflow.
+The current phase documents representative security findings based on the
+established test and evidence workflow.
 
-The existing TC-001, TC-002, and TC-003 implementations remain unchanged unless a later phase explicitly requires an architectural extension.
+The current Phase-8 artifacts are:
+
+```text
+05_examples/sample_finding_SEC-001.md
+05_examples/sample_finding_SEC-002.md
+```
+
+The existing TC-001, TC-002, and TC-003 implementations remain unchanged.
+
+Phase 9 — pytest Regression Suite remains deferred until Phase 8 is
+completed and reviewed.
 
 ---
 
 # Documentation Map
 
-| Document | Purpose |
-| --- | --- |
-| `README.md` | Project overview, architecture, status, scope, and development phases |
-| `PROJECT_STATUS.md` | Detailed implementation and verification status |
-| `ARCHITECTURE_DECISIONS.md` | Recorded architectural decisions and rationale |
-| `docs/01_architecture.md` | Detailed architecture |
-| `docs/02_methodology.md` | Security-testing methodology |
-| `docs/03_evidence-format.md` | Evidence Framework and evidence format |
-| `docs/04_end-to-end-assessment-case.md` | Future end-to-end assessment structure |
-| `02_test_cases/TC-001-diagnostic-authorization.md` | Detailed TC-001 specification |
-| `02_test_cases/TC-002-message-validation.md` | Detailed TC-002 specification |
-| `02_test_cases/TC-003-regression-workflow.md` | Detailed TC-003 regression workflow specification |
-| `01_threat_model/01_attack_surface.md` | Modeled attack-surface information |
+| Document                                           | Purpose                                                               |
+| -------------------------------------------------- | --------------------------------------------------------------------- |
+| `README.md`                                        | Project overview, architecture, status, scope, and development phases |
+| `PROJECT_STATUS.md`                                | Detailed implementation and verification status                       |
+| `ARCHITECTURE_DECISIONS.md`                        | Recorded architectural decisions and rationale                        |
+| `docs/01_architecture.md`                          | Detailed architecture                                                 |
+| `docs/02_methodology.md`                           | Security-testing methodology                                          |
+| `docs/03_evidence-format.md`                       | Evidence Framework and evidence format                                |
+| `docs/04_end-to-end-assessment-case.md`            | Future end-to-end assessment structure                                |
+| `02_test_cases/TC-001-diagnostic-authorization.md` | Detailed TC-001 specification                                         |
+| `02_test_cases/TC-002-message-validation.md`       | Detailed TC-002 specification                                         |
+| `02_test_cases/TC-003-regression-workflow.md`      | Detailed TC-003 regression workflow specification                     |
+| `01_threat_model/01_attack_surface.md`             | Modeled attack-surface information                                    |
 
 The README provides the project-level view. Detailed implementation and methodology are maintained in the corresponding documentation files.
 
@@ -1375,6 +1571,23 @@ TC-003 Regression Workflow
         ↓
 Automated Verification
 ```
+
+Phase 8 adds the following documentation layer:
+
+```text
+TC-001 / TC-002
+        ↓
+Evidence
+        ↓
+SEC-001 / SEC-002 Example Findings
+```
+
+The current implementation therefore demonstrates not only execution evidence
+but also structured documentation of representative security assessment
+results.
+
+This remains a documentation layer and is not a generalized security finding
+management platform.
 
 The current Phase-7 regression implementation is specific to the diagnostic authorization security property established by TC-001.
 

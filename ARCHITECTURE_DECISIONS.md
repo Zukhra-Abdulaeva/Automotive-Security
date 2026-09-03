@@ -230,8 +230,6 @@ unsupported operations, and security or policy decisions.
 * Unsupported operations are distinguishable from malformed requests.
 * Parameter constraints are explicitly testable.
 
-## Phase 4 — Evidence Framework
-
 ### ADR-009 — Security-test evidence uses a structured data model
 
 **Status:** Accepted
@@ -446,7 +444,13 @@ The Evidence Framework does not implement security finding management.
 
 Evidence documents the observation and result of a security test.
 
-Security finding management may later address additional information such as:
+Structured security finding documentation is introduced in Phase 8.
+
+This does not change the responsibility of the Evidence Framework and does not
+introduce generalized security finding management.
+
+Generalized security finding management may later address additional
+information such as:
 
 ```text
 Finding ID
@@ -477,8 +481,10 @@ Evidence and finding management represent different architectural concerns.
 **Consequences:**
 
 * Evidence remains focused on test execution.
-* Finding management can be added in a later phase without changing the
+* Phase 8 can document representative security findings without changing the
   purpose of the Evidence Framework.
+* Generalized finding management can be added in a later phase without
+  changing the purpose of the Evidence Framework.
 * Evidence must not be interpreted as a complete security finding record.
 
 ### ADR-016 — Phase 4 does not implement future regression or CI/CD layers
@@ -782,6 +788,69 @@ itself as a successful security regression result.
 * A pytest pass does not necessarily mean that the underlying security
   `TestResult` is `PASS`; the vulnerable-behavior demonstration is the
   explicit example of this distinction.
+
+## ADR-022 — Phase 8 uses structured example findings as a documentation layer
+
+**Status:** Accepted
+
+**Phase:** 8
+
+**Source:** [MASTER] + [INFERENCE]
+
+Phase 8 introduces structured example security findings based on the existing
+security-test and Evidence Framework results.
+
+The finding documents are:
+
+```text
+05_examples/sample_finding_SEC-001.md
+05_examples/sample_finding_SEC-002.md
+```
+
+SEC-001 documents the controlled authorization deviation identified by TC-001:
+
+```text
+Expected: ACCESS_DENIED
+Actual:   ACCESS_GRANTED
+Result:   FAIL
+```
+
+SEC-002 documents a validation assessment in which no security-relevant
+deviation was reproduced in the defined TC-002 scenarios.
+
+The finding documents reference existing test and evidence information but do
+not modify the Evidence model.
+
+### Rationale:
+
+Phase 8 requires representative security findings that demonstrate how a
+security-test observation can be documented with security requirement,
+reproduction information, evidence, impact, root cause, recommendation,
+fix, retest, and regression relationship.
+
+The findings must remain traceable to the existing test architecture and
+must not introduce unsupported claims about real automotive systems.
+
+### Consequences:
+
+Positive:
+
+Security-relevant observations can be documented in a structured format.
+SEC-001 provides a reproducible example of a controlled security finding.
+SEC-002 demonstrates that a test result without a reproduced deviation can
+also be documented without inventing a vulnerability.
+Findings remain traceable to existing TC-001 and TC-002 test behavior.
+The existing Evidence Framework remains unchanged.
+
+Negative:
+
+Finding documents are static project artifacts rather than a generalized
+finding-management system.
+Finding identifiers, severity, root cause, remediation, and status are
+documented at the example-finding layer and are not added to the Evidence
+data model.
+Automated finding ingestion, historical finding tracking, and generalized
+finding management remain outside Phase 8.
 
 ## Change Policy
 
