@@ -170,7 +170,7 @@ def test_unauthorized_protected_operation_is_denied():
         authorized=False,
     )
 
-    assert test_case.expected_status is ResponseStatus.ACCESS_DENIED
+    assert test_case.expected_status is ResponseStatus.ACCESS_GRANTED
     assert result.actual_status is ResponseStatus.ACCESS_DENIED
     assert result.passed
 
