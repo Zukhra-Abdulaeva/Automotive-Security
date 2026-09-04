@@ -146,7 +146,7 @@ The supported modes are:
 ```text
 SECURE
 VULNERABLE
-````
+```
 
 In secure mode, the protected operation requires authorization.
 
@@ -230,7 +230,7 @@ unsupported operations, and security or policy decisions.
 * Unsupported operations are distinguishable from malformed requests.
 * Parameter constraints are explicitly testable.
 
-### ADR-009 — Security-test evidence uses a structured data model
+## ADR-009 — Security-test evidence uses a structured data model
 
 **Status:** Accepted
 **Phase:** 4
@@ -273,7 +273,7 @@ Negative:
   structure where required.
 * The Evidence model does not provide security finding management.
 
-### ADR-010 — Evidence is generated outside the ECU and remains separate from target logic
+## ADR-010 — Evidence is generated outside the ECU and remains separate from target logic
 
 **Status:** Accepted
 **Phase:** 4
@@ -320,7 +320,7 @@ Negative:
 * Later evidence extensions must preserve the separation between target and
   evidence layers.
 
-### ADR-011 — Evidence uses explicit PASS/FAIL based on expected versus actual behavior
+## ADR-011 — Evidence uses explicit PASS/FAIL based on expected versus actual behavior
 
 **Status:** Accepted
 **Phase:** 4
@@ -355,7 +355,7 @@ Security finding classification is a separate concern.
 * Evidence consistency can be validated.
 * Security findings can be assessed separately in later project phases.
 
-### ADR-012 — Evidence is serialized as JSON
+## ADR-012 — Evidence is serialized as JSON
 
 **Status:** Accepted
 **Phase:** 4
@@ -388,7 +388,7 @@ by tests, automation, and later CI/CD components.
 * JSON remains independent from a specific CI/CD platform.
 * Phase 4 does not define CI/CD artifact handling.
 
-### ADR-013 — Evidence validation remains lightweight and is implemented in the Evidence model
+## ADR-013 — Evidence validation remains lightweight and is implemented in the Evidence model
 
 **Status:** Accepted
 **Phase:** 4
@@ -413,7 +413,7 @@ an unnecessary validation framework.
 * Evidence consistency can be checked locally.
 * The validation implementation remains small and understandable.
 
-### ADR-014 — Evidence timestamps use runtime-generated ISO 8601 UTC
+## ADR-014 — Evidence timestamps use runtime-generated ISO 8601 UTC
 
 **Status:** Accepted
 **Phase:** 4
@@ -434,7 +434,7 @@ automated test execution.
 * Tests remain independent from a fixed timestamp.
 * Timestamp handling remains deterministic in format but not in value.
 
-### ADR-015 — Evidence is not Security Finding Management
+## ADR-015 — Evidence is not Security Finding Management
 
 **Status:** Accepted
 **Phase:** 4
@@ -487,7 +487,7 @@ Evidence and finding management represent different architectural concerns.
   changing the purpose of the Evidence Framework.
 * Evidence must not be interpreted as a complete security finding record.
 
-### ADR-016 — Phase 4 does not implement future regression or CI/CD layers
+## ADR-016 — Phase 4 does not implement future regression or CI/CD layers
 
 **Status:** Accepted
 **Phase:** 4
@@ -576,13 +576,14 @@ parameters provides a clear and machine-readable validation model.
 * Future validation rules must preserve these distinctions unless an
   explicit architecture change is accepted.
 
-## ADR-018 — TC-003 reuses the existing TC-001 security test definition
+## ADR-018 — TC-003 uses the established TC-001 security property as regression baseline
 
 **Status:** Accepted
 **Phase:** 7
 **Source:** [TC-003] + [SOURCE]
 
-TC-003 defines the regression-test scenarios for the established security properties.
+TC-003 defines the regression-test scenarios for the established security
+properties.
 
 The automated regression test module is:
 
@@ -590,33 +591,34 @@ The automated regression test module is:
 04_tests/test_security_regression.py
 ```
 
-The regression scenarios create their own SecurityTestCase instances with:
+The regression scenarios create their own `SecurityTestCase` instances with:
 
 ```text
 test_id = TC-003
 ```
 
-TC-001 remains the original security test that established the diagnostic authorization property. 
-TC-003 verifies that the established security behavior remains preserved, but it does not reuse 
-the TC-001 SecurityTestCase instance or retain TC-001 as the test identifier of the regression scenario.
-The pytest functions use the `test_tc003_*` naming convention because they verify the TC-003 workflow.
+TC-001 remains the original security test that established the diagnostic
+authorization property.
 
-The underlying `SecurityTestCase.test_id` remains:
+TC-003 verifies that the established security behavior remains preserved,
+but it does not reuse the TC-001 `SecurityTestCase` instance and does not
+retain TC-001 as the test identifier of the regression scenario.
+
+The regression `SecurityTestCase.test_id` is:
 
 ```text
-TC-001
+TC-003
 ```
-
-This is intentional. TC-003 defines the regression workflow, while TC-001
-defines the security property and test condition being reused as the
-regression baseline.
 
 The architectural relationship is therefore:
 
-``text
+```text
 TC-001
   |
   +-- establishes the security property
+  |
+  v
+Established security property
   |
   v
 TC-003
@@ -629,7 +631,7 @@ SecurityTestCase(test_id="TC-003")
 
 For the protected operation, the established security property remains:
 
-``text
+```text
 Unauthorized protected operation
         ↓
 ACCESS_DENIED
@@ -637,12 +639,12 @@ ACCESS_DENIED
 
 **Rationale:**
 
-The security property established by TC-001 must remain stable while 
-the regression workflow receives its own test identity.
+The security property established by TC-001 must remain stable while the
+regression workflow receives its own test identity.
 
-Separating the test identifiers makes the distinction between the 
-original security test and its later regression verification explicit 
-and avoids conflating test-definition identity with regression-workflow identity.
+Separating the test identifiers makes the distinction between the original
+security test and its later regression verification explicit and avoids
+conflating test-definition identity with regression-workflow identity.
 
 **Consequences:**
 
@@ -651,15 +653,15 @@ Positive:
 * TC-001 remains the original security-property definition.
 * TC-003 has an explicit identity as a regression test.
 * Regression scenarios can be extended independently without changing TC-001.
-* Generated regression evidence can identify the regression execution 
-directly through test_id=TC-003.
+* Generated regression evidence can identify the regression execution
+  directly through `test_id=TC-003`.
 
 Negative:
 
-* The relationship between TC-001 and TC-003 must remain documented because 
-they represent different test layers.
-* A regression test must not be interpreted as a replacement for the original 
-security-property definition.
+* The relationship between TC-001 and TC-003 must remain documented because
+  they represent different test layers.
+* A regression test must not be interpreted as a replacement for the original
+  security-property definition.
 
 ## ADR-019 — Vulnerable and secure ECU modes provide controlled lifecycle states
 
@@ -727,29 +729,36 @@ Negative:
 TC-003 generates regression evidence through the existing
 `EvidenceGenerator` using the executed `SecurityTestCase` and `TestResult`.
 
+The evidence generator takes the executed test case and result as its input.
+The generated evidence receives the `test_id` from `test_case.test_id` and
+the expected and actual response values from the executed `TestResult`.
+
 The evidence result is derived from the expected and actual response values
 rather than from the pytest assertion itself.
 
 The relationship is:
 
 ```text
-SecurityTestCase
+SecurityTestCase(test_id="TC-003")
       ↓
-SecurityTestRunner
+SecurityTestRunner.run()
       ↓
 TestResult
       ↓
-EvidenceGenerator
+EvidenceGenerator.generate()
       ↓
-Evidence
+Evidence(test_id="TC-003")
       ↓
 Evidence.validate()
 ```
 
-No separate regression-specific evidence generator or evidence model is introduced.
+No separate regression-specific evidence generator or evidence model is
+introduced.
 
-For the secure unauthorized protected-operation scenario, the resulting evidence contains:
+For the secure unauthorized protected-operation scenario, the resulting
+evidence contains:
 
+```text
 test_id     = TC-003
 target      = simulated-ecu
 
@@ -760,6 +769,7 @@ security_mode = SECURE
 expected    = ACCESS_DENIED
 actual      = ACCESS_DENIED
 result      = PASS
+```
 
 **Rationale:**
 
@@ -767,12 +777,9 @@ Evidence must represent the actual test execution independently of the
 pytest assertion mechanism.
 
 This preserves the architectural separation established by the Evidence
-Framework.
+Framework between target behavior, test execution, and evidence handling.
 
-Using the existing Evidence Framework preserves the architectural 
-separation between target behavior, test execution, and evidence handling.
-
-Explicit evidence validation additionally ensures that the generated 
+Explicit evidence validation additionally ensures that the generated
 evidence satisfies the established Evidence Framework rules.
 
 **Consequences:**
@@ -838,9 +845,7 @@ itself as a successful security regression result.
 ## ADR-022 — Phase 8 uses structured example findings as a documentation layer
 
 **Status:** Accepted
-
 **Phase:** 8
-
 **Source:** [MASTER] + [INFERENCE]
 
 Phase 8 introduces structured example security findings based on the existing
@@ -867,7 +872,7 @@ deviation was reproduced in the defined TC-002 scenarios.
 The finding documents reference existing test and evidence information but do
 not modify the Evidence model.
 
-### Rationale:
+**Rationale:**
 
 Phase 8 requires representative security findings that demonstrate how a
 security-test observation can be documented with security requirement,
@@ -877,36 +882,36 @@ fix, retest, and regression relationship.
 The findings must remain traceable to the existing test architecture and
 must not introduce unsupported claims about real automotive systems.
 
-### Consequences:
+**Consequences:**
 
 Positive:
 
 * Security-relevant observations can be documented in a structured format.
 * SEC-001 provides a reproducible example of a controlled security finding.
 * SEC-002 demonstrates that a test result without a reproduced deviation can
-also be documented without inventing a vulnerability.
+  also be documented without inventing a vulnerability.
 * Findings remain traceable to existing TC-001 and TC-002 test behavior.
 * The existing Evidence Framework remains unchanged.
 
 Negative:
 
 * Finding documents are static project artifacts rather than a generalized
-finding-management system.
+  finding-management system.
 * Finding identifiers, severity, root cause, remediation, and status are
-documented at the example-finding layer and are not added to the Evidence
-data model.
+  documented at the example-finding layer and are not added to the Evidence
+  data model.
 * Automated finding ingestion, historical finding tracking, and generalized
-finding management remain outside Phase 8.
+  finding management remain outside Phase 8.
 
-ADR-023 — Automated regression verifies both security behavior and evidence consistency
+## ADR-023 — Automated regression verifies both security behavior and evidence consistency
 
-Status: Accepted
+**Status:** Accepted
+**Phase:** 9
+**Source:** [SOURCE]
 
-Phase: 9
-
-Source: [SOURCE]
-
-The automated security regression suite verifies not only the expected security behavior but also the correctness of the evidence generated from an executed regression scenario.
+The automated security regression suite verifies not only the expected security
+behavior but also the correctness of the evidence generated from an executed
+regression scenario.
 
 The regression implementation contains dedicated scenarios for:
 
@@ -932,41 +937,52 @@ Check evidence fields
 Evidence.validate()
 ```
 
-
-The test explicitly verifies the evidence identity, target, preconditions, expected value, actual value, and result.
+The test explicitly verifies the evidence identity, target, preconditions,
+expected value, actual value, and result.
 
 The final validation call:
 
 ```text
 evidence.validate()
-
 ```
 
 is therefore part of the automated regression test itself.
 
-### Rationale:
+**Rationale:**
 
-Security regression testing should verify not only that the system under test produces the expected security response, 
-but also that the resulting test evidence correctly represents that execution.
-Without evidence validation, a test could produce a correct ECU result while recording incomplete or inconsistent evidence.
-The existing Evidence Framework already provides the required validation mechanism, so no additional validation framework is introduced.
+Security regression testing should verify not only that the system under test
+produces the expected security response, but also that the resulting test
+evidence correctly represents that execution.
 
-### Consequences:
+Without evidence validation, a test could produce a correct ECU result while
+recording incomplete or inconsistent evidence.
+
+The existing Evidence Framework already provides the required validation
+mechanism, so no additional validation framework is introduced.
+
+**Consequences:**
 
 Positive:
 
 * Regression execution verifies established security properties automatically.
 * Evidence generation is exercised by the automated regression suite.
 * Evidence consistency is verified automatically.
-* The test ID, target, execution preconditions, expected value, actual value, and result are checked.
-* The existing Evidence Framework is reused without introducing a second evidence mechanism.
-* Evidence becomes a verified output of the regression execution rather than only a documentation artifact.
+* The test ID, target, execution preconditions, expected value, actual value,
+  and result are checked.
+* The existing Evidence Framework is reused without introducing a second
+  evidence mechanism.
+* Evidence becomes a verified output of the regression execution rather than
+  only a documentation artifact.
 
 Negative:
 
-* The automated regression suite verifies the defined evidence structure and consistency but does not implement generalized evidence management.
-* Historical evidence comparison, baseline management, finding ingestion, remediation tracking, and CI/CD artifact handling remain outside the current architecture.
-* Evidence validation confirms consistency of the recorded test result; it does not by itself establish the existence or severity of a security vulnerability.
+* The automated regression suite verifies the defined evidence structure and
+  consistency but does not implement generalized evidence management.
+* Historical evidence comparison, baseline management, finding ingestion,
+  remediation tracking, and CI/CD artifact handling remain outside the
+  current architecture.
+* Evidence validation confirms consistency of the recorded test result; it does
+  not by itself establish the existence or severity of a security vulnerability.
 
 ## Change Policy
 

@@ -14,16 +14,15 @@ The methodology separates:
 * result evaluation
 * evidence generation
 * security-relevant observations
-
 * remediation
-
 * retesting
-
 * regression testing
+* automated regression testing
+* CI/CD execution
 
 The methodology is implemented incrementally across the project phases.
 
-The current implementation covers the security-test, evidence, Phase-8 example finding, and Phase-9 automated regression workflow through Phase 9.
+The current implementation covers the security-test, evidence, Phase-8 example finding, Phase-9 automated regression, and Phase-10 CI/CD workflow.
 
 Phase 7 extends the existing security-test and evidence workflow with a controlled regression lifecycle for the diagnostic authorization security property established by TC-001.
 
@@ -31,7 +30,9 @@ Phase 8 extends the workflow with structured example finding documentation based
 
 Phase 9 extends the methodology with an automated pytest security regression suite covering the established security properties of the simulated ECU.
 
-Generalized security finding management, automated finding ingestion, remediation tracking, historical regression comparison, generalized regression orchestration, and CI/CD remain outside the current implementation.
+Phase 10 extends the automated regression workflow with GitHub Actions execution and CI evidence artifact generation. GitHub Actions executes the existing Phase-9 security regression logic and does not introduce a second security-test implementation.
+
+Generalized security finding management, automated finding ingestion, remediation tracking, historical regression comparison, generalized regression orchestration, and generalized security lifecycle management remain outside the current implementation.
 
 ---
 
@@ -71,7 +72,7 @@ Regression
 Automated Regression
         ↓
 CI/CD
-````
+```
 
 Not all stages are currently implemented.
 
@@ -105,12 +106,19 @@ Regression Evidence
 Example Finding Documentation
         ↓
 Automated Security Regression Tests
+        ↓
+GitHub Actions CI Execution
+        ↓
+CI Evidence JSON Files
+        ↓
+GitHub Actions Artifact
 ```
 
 Phase 7 implements the regression extension only for the diagnostic authorization security property represented by TC-001.
 Phase 8 adds structured example finding documentation based on the existing security-test and evidence results.
 Phase 9 adds an automated pytest regression suite for the established security properties represented by the current simulated ECU and test architecture.
 The Phase-9 suite verifies the secure behavior of individual regression scenarios and validates that regression evidence represents the executed secure retest.
+Phase 10 executes the established Phase-9 regression suite through GitHub Actions and generates the existing structured Evidence objects as CI evidence JSON files that are uploaded as a workflow artifact.
 The distinction between implemented and planned capabilities is maintained throughout this document.
 
 ---
@@ -199,6 +207,24 @@ Evidence
 
 This keeps evidence generation independent from the system under test.
 
+The CI evidence path extends this existing separation:
+
+```text
+Security Regression Tests
+        ↓
+EvidenceGenerator
+        ↓
+Evidence
+        ↓
+Evidence.to_json()
+        ↓
+CI Evidence JSON Files
+        ↓
+GitHub Actions Artifact
+```
+
+The CI layer therefore collects the results of the existing test and evidence architecture rather than implementing separate security-test logic.
+
 ### Keep Tests Reproducible
 
 A security test should produce the same security-relevant result when executed against the same defined target state and input.
@@ -214,6 +240,8 @@ The current simulation therefore avoids dependencies on:
 Execution timestamps are generated dynamically and are treated as execution metadata rather than as part of the security decision.
 The Phase-9 regression suite additionally creates a fresh secure ECU simulator for each regression scenario. Authorization state and ECU state are explicitly configured where required by the scenario.
 This isolates individual regression cases from state changes caused by preceding tests and keeps the regression execution deterministic.
+
+Phase 10 preserves these properties by executing the existing Phase-9 regression suite in the controlled GitHub Actions environment.
 
 ## Regression Methodology
 
@@ -272,6 +300,22 @@ The regression methodology therefore reuses the existing test and evidence archi
 Phase 9 adds automated pytest verification around the established security properties.
 The Phase-9 regression scenarios execute against a fresh secure ECU simulator and verify expected secure responses for authorization, message validation, boundary input, ECU state, and regression evidence.
 Phase 9 does not reproduce the vulnerable state as part of the pytest regression suite. Controlled vulnerable-state reproduction remains part of the Phase-7 TC-003 regression workflow.
+
+Phase 10 adds CI execution around the existing Phase-9 regression suite:
+
+```text
+Existing Phase-9 Regression Logic
+        ↓
+GitHub Actions
+        ↓
+pytest Security Regression Suite
+        ↓
+Evidence Generation
+        ↓
+Artifact Upload
+```
+
+No second security-test implementation is introduced in the CI workflow.
 
 ---
 
@@ -491,6 +535,7 @@ The test therefore verifies that invalid or impermissible input is rejected dete
 The security test translates the security requirement and attack hypothesis into an executable test definition.
 
 The current `SecurityTestCase` abstraction contains:
+
 * `test_id`
 * `description`
 * `request`
@@ -723,6 +768,27 @@ The response is then evaluated against the expected result defined by the securi
 Phase 9 invokes this existing execution path from pytest regression tests.
 The pytest layer therefore acts as an automated verification layer around the established security-test architecture rather than replacing the Test Runner.
 
+Phase 10 invokes the same Phase-9 regression suite from GitHub Actions:
+
+```text
+GitHub Actions
+        ↓
+pytest 04_tests/test_security_regression.py
+        ↓
+Existing Security Regression Logic
+        ↓
+Test Results
+```
+
+The CI workflow does not define a second set of security assertions.
+The security regression logic remains centralized in:
+
+```text
+04_tests/test_security_regression.py
+```
+
+This file is the Single Source of Truth for the Phase-9 security regression scenarios executed by the CI workflow.
+
 ---
 
 ## Step 8 — Expected vs Actual Evaluation
@@ -774,6 +840,21 @@ ECU actual:                ACCESS_DENIED
 TestResult.passed:         True
 pytest test:               PASS
 ```
+
+In Phase 10, a pytest failure propagates to the GitHub Actions job because the security regression step does not use `continue-on-error`.
+A failing security regression therefore causes the CI job to fail.
+
+The controlled CI failure test verified this behavior:
+
+```text
+Security Regression Assertion
+        ↓
+pytest FAIL
+        ↓
+GitHub Actions Job FAIL
+```
+
+The CI evidence generation and artifact upload steps use `always()` so that evidence can still be generated and uploaded after a test failure.
 
 ---
 
@@ -827,6 +908,53 @@ result = PASS
 
 The generated evidence is then validated through the existing Evidence Framework.
 This verifies that the regression evidence is structurally consistent with the executed secure retest.
+
+### Phase-10 CI Evidence Flow
+
+Phase 10 reuses the existing Evidence architecture for CI execution.
+
+The central CI evidence chain is:
+
+```text
+Security Regression Tests
+        ↓
+EvidenceGenerator
+        ↓
+Evidence
+        ↓
+Evidence.to_json()
+        ↓
+CI Evidence JSON Files
+        ↓
+GitHub Actions Artifact
+```
+
+The CI workflow generates six JSON evidence files from the established Phase-9 regression scenarios.
+The evidence files use the existing `EvidenceGenerator` and `Evidence` model.
+No separate CI-specific evidence model is introduced.
+
+The generated CI evidence is uploaded under the artifact name:
+
+```text
+security-regression-evidence
+```
+
+The artifact is generated and uploaded even when the regression test job fails because the evidence generation and upload steps are configured with `if: always()`.
+
+This behavior was verified during the controlled CI failure test.
+
+The locally verified evidence generation produced six JSON files:
+
+```text
+TC-003_unauthorized_protected_operation.json
+TC-003_authorized_protected_operation.json
+TC-003_invalid_message.json
+TC-003_unsupported_operation.json
+TC-003_boundary_input.json
+TC-003_unexpected_state.json
+```
+
+The evidence content uses the same structured Evidence semantics as the local regression workflow.
 
 ---
 
@@ -940,6 +1068,24 @@ pytest test:               PASS
 This distinction is required for a correct interpretation of the Phase-7 test lifecycle.
 Phase 9 extends this distinction by asserting the expected secure `TestResult` through pytest.
 The Phase-9 regression suite itself is expected to pass when the established security properties remain satisfied.
+
+In Phase 10, the pytest framework result also determines the CI job status:
+
+```text
+pytest PASS
+        ↓
+GitHub Actions Job PASS
+```
+
+or:
+
+```text
+pytest FAIL
+        ↓
+GitHub Actions Job FAIL
+```
+
+The CI status therefore reflects the automated regression test result and does not replace the security-test result represented by the underlying `TestResult`.
 
 ---
 
@@ -1158,6 +1304,7 @@ TC-003 applies the implemented methodology to the controlled regression of the d
 The TC-003 regression workflow and the Phase-9 pytest regression suite must be distinguished.
 The Phase-7 TC-003 workflow demonstrates the complete controlled regression lifecycle, including vulnerable-state reproduction, secure retest, regression evidence, and authorized-behavior verification.
 Phase 9 provides automated pytest verification of established security properties and the secure regression evidence.
+Phase 10 executes this established automated regression suite through GitHub Actions and collects the generated regression evidence as a CI artifact.
 
 ## Security Property
 
@@ -1331,6 +1478,71 @@ REQUEST_REJECTED
 The final Phase-9 scenario verifies that the generated regression evidence represents the secure retest and that the evidence object passes validation.
 The Phase-9 suite therefore verifies established security behavior automatically without implementing vulnerable-state reproduction, historical comparison, or generalized regression orchestration.
 
+## Phase-10 CI Execution
+
+Phase 10 executes the existing Phase-9 security regression suite through GitHub Actions.
+
+The CI path is:
+
+```text
+GitHub Event
+        ↓
+Repository Checkout
+        ↓
+Python 3.12
+        ↓
+Install pytest>=9,<10
+        ↓
+pytest 04_tests/test_security_regression.py
+        ↓
+Evidence Generation
+        ↓
+Evidence JSON Files
+        ↓
+GitHub Actions Artifact
+```
+
+The workflow is configured for:
+
+```text
+push
+pull_request
+```
+
+The actual `push` execution was verified on `main` for commit `78c943f`.
+
+The successful GitHub Actions run verified:
+
+```text
+Workflow = Security Regression
+Trigger = push
+Branch = main
+Commit = 78c943f
+Job = security-regression
+Status = Success
+Artifact = security-regression-evidence
+```
+
+The CI evidence artifact was generated from the existing regression evidence path.
+
+The artifact therefore represents the output of the existing security regression and Evidence architecture rather than a separate CI test implementation.
+
+The controlled failure test additionally verified:
+
+```text
+Security Regression Assertion
+        ↓
+pytest FAIL
+        ↓
+GitHub Actions Job FAIL
+        ↓
+Evidence Generation
+        ↓
+Artifact Upload
+```
+
+The PR trigger is configured in the workflow but has not been documented as an actually executed GitHub Actions run because no concrete PR execution has been verified.
+
 ---
 
 # Evidence and Traceability
@@ -1362,6 +1574,7 @@ The current implementation provides this relationship for the implemented securi
 For TC-003, the existing TC-001 security property is reused to provide a controlled regression workflow.
 Phase 8 extends the documentation layer by relating selected existing test and evidence results to structured example findings.
 Phase 9 extends automated verification of the established security properties and verifies that the regression evidence generated from a secure retest matches the executed test result.
+Phase 10 extends this path into CI execution while preserving the existing test and evidence architecture.
 
 The Phase-9 relationship is:
 
@@ -1381,6 +1594,26 @@ Regression Evidence
 Evidence Validation
 ```
 
+The Phase-10 CI relationship is:
+
+```text
+Phase-9 Regression Suite
+        ↓
+GitHub Actions
+        ↓
+pytest Result
+        ↓
+EvidenceGenerator
+        ↓
+Evidence
+        ↓
+Evidence.to_json()
+        ↓
+CI Evidence JSON Files
+        ↓
+GitHub Actions Artifact
+```
+
 The current Phase-8 relationship is:
 
 ```text
@@ -1397,7 +1630,7 @@ Example Finding
 
 SEC-001 is based on the controlled security-relevant deviation reproduced by TC-001.
 SEC-002 documents the TC-002 assessment where no security-relevant deviation was reproduced.
-More advanced requirement identifiers, finding identifiers, and automated traceability are planned for later phases.
+More advanced requirement identifiers, finding identifiers, automated traceability, historical comparison, and generalized lifecycle management remain outside the current implementation.
 
 ---
 
@@ -1407,6 +1640,7 @@ Reproducibility is a core requirement of the methodology.
 The same test should be executable repeatedly against the same defined target state and input.
 
 The current simulation supports this through:
+
 * deterministic ECU behavior
 * explicit security modes
 * explicit authorization state
@@ -1416,12 +1650,16 @@ The current simulation supports this through:
 * absence of external dependencies
 
 The Phase-9 regression suite additionally supports reproducibility by:
+
 * creating a fresh secure ECU simulator for each regression scenario
 * explicitly configuring authorization where required
 * explicitly configuring ECU state where required
 * using deterministic request inputs
 * using fixed expected response statuses
 * avoiding dependency on previous test execution state
+
+Phase 10 preserves this deterministic test setup by executing the existing regression suite in GitHub Actions.
+The CI environment does not introduce real vehicle systems, real ECU communication, external automotive infrastructure, or other external target dependencies.
 
 The execution timestamp changes between runs.
 This is expected because the timestamp records when the test was executed.
@@ -1451,6 +1689,8 @@ TC-003 Regression Workflow Tests
 Phase-9 Security Regression Suite
         ↓
 Complete pytest Suite
+        ↓
+Phase-10 CI Execution
 ```
 
 Phase 9 provides the following verified regression coverage:
@@ -1490,16 +1730,27 @@ Test Runner Tests                   4
 Total                               41
 ```
 
-This allows changes in the ECU simulation, test architecture, evidence handling, security-test implementation, or established regression properties to be detected through automated tests.
+Phase 10 was additionally verified through an actual GitHub Actions execution.
+
+The successful CI run was triggered by `push` of commit `78c943f` to `main` and completed with:
+
+```text
+Workflow: Security Regression
+Job: security-regression
+Status: Success
+Artifact: security-regression-evidence
+```
+
+The controlled failure test additionally verified that a deliberately failed security regression assertion causes the GitHub Actions job to fail while still producing the configured evidence artifact.
+
+This allows changes in the ECU simulation, test architecture, evidence handling, security-test implementation, established regression properties, or CI workflow to be detected through automated verification.
 The test infrastructure is therefore treated as software that also requires verification.
-Phase 9 remains a local deterministic pytest verification layer.
-CI/CD execution is not part of Phase 9.
 
 ---
 
 # Future Security Lifecycle
 
-The project currently demonstrates a controlled retest and regression workflow through Phase 7, structured example finding documentation through Phase 8, and automated pytest regression verification through Phase 9.
+The project currently demonstrates a controlled retest and regression workflow through Phase 7, structured example finding documentation through Phase 8, automated pytest regression verification through Phase 9, and CI/CD execution through Phase 10.
 
 The following capabilities remain future work:
 
@@ -1514,13 +1765,14 @@ Historical Regression Comparison
         ↓
 Generalized Regression Orchestration
         ↓
-CI/CD
+Generalized Security Lifecycle Management
 ```
 
 Phase 7 therefore provides a verified regression workflow for the defined TC-001 security property.
 Phase 8 provides structured example finding documentation based on existing test and evidence results.
 Phase 9 provides automated pytest verification of established security properties.
-Neither Phase 7, Phase 8, nor Phase 9 implements a generalized security finding, remediation, historical comparison, or regression management platform.
+Phase 10 provides GitHub Actions execution of the established regression suite and CI evidence artifact generation.
+Neither Phase 7, Phase 8, Phase 9, nor Phase 10 implements a generalized security finding, remediation, historical comparison, or regression management platform.
 
 ---
 
@@ -1529,6 +1781,7 @@ Neither Phase 7, Phase 8, nor Phase 9 implements a generalized security finding,
 Phase 8 introduces structured example security findings based on the existing security-test and evidence workflow.
 
 The finding documentation formalizes a security-relevant observation by recording:
+
 * affected security property
 * observed behavior
 * security impact
@@ -1688,6 +1941,20 @@ Expected vs Actual
 Automated Regression Result
 ```
 
+Phase 10 executes this automated regression suite through GitHub Actions:
+
+```text
+Phase-9 Regression Tests
+        ↓
+GitHub Actions
+        ↓
+pytest Result
+        ↓
+Evidence Generation
+        ↓
+Evidence Artifact
+```
+
 The Phase-9 suite covers authorization, request validation, boundary input handling, ECU state restrictions, and regression evidence validation.
 The project does not implement historical result comparison or a generalized regression orchestration layer.
 
@@ -1709,6 +1976,7 @@ Evidence
 
 Phase 7 provides a verified, specific regression workflow through TC-003.
 Phase 9 provides the currently implemented automated pytest regression suite.
+Phase 10 executes this suite through GitHub Actions.
 
 The Phase-9 suite is located in:
 
@@ -1746,36 +2014,93 @@ Historical result comparison
 Finding ingestion
 Finding lifecycle management
 Generalized regression orchestration
-CI/CD execution
 ```
 
 Those capabilities remain outside the current implementation.
 
----
+### CI/CD Execution
 
-## CI/CD
+Phase 10 integrates the existing automated regression suite into GitHub Actions.
 
-The final automation stage is integration with CI/CD.
-
-The target workflow is:
+The implemented workflow is:
 
 ```text
-Code Change
-      ↓
-CI Pipeline
-      ↓
+GitHub Event
+        ↓
+Repository Checkout
+        ↓
+Python 3.12
+        ↓
+Install pytest>=9,<10
+        ↓
 Security Regression Suite
-      ↓
-Test Results
-      ↓
-Pipeline Decision
+        ↓
+Evidence Generation
+        ↓
+Evidence JSON Files
+        ↓
+GitHub Actions Artifact
 ```
 
-The current project uses local pytest execution for verification.
+The workflow is configured for:
 
-Phase 9 provides the automated pytest regression suite that is intended to become part of the later CI/CD execution flow.
+```text
+push
+pull_request
+```
 
-GitHub Actions and automated CI/CD execution are planned for Phase 10.
+The security regression step executes:
+
+```text
+pytest -v 04_tests/test_security_regression.py
+```
+
+The CI workflow therefore invokes the existing Phase-9 regression suite rather than defining a separate CI-specific test suite.
+
+The CI evidence path is:
+
+```text
+Security Regression Tests
+        ↓
+EvidenceGenerator
+        ↓
+Evidence
+        ↓
+Evidence.to_json()
+        ↓
+CI Evidence JSON Files
+        ↓
+GitHub Actions Artifact
+```
+
+The artifact is named:
+
+```text
+security-regression-evidence
+```
+
+Evidence generation and artifact upload are configured to run even when the regression test step fails.
+
+This behavior was verified through a controlled CI failure test.
+
+The actual successful CI execution was triggered by a `push` of commit `78c943f` to `main`.
+The workflow completed successfully and produced one `security-regression-evidence` artifact.
+
+A controlled failure on branch `ci/controlled-failure-test` deliberately caused one security regression assertion to fail.
+The local regression suite produced:
+
+```text
+1 failed, 6 passed
+```
+
+The corresponding GitHub Actions run failed with exit code `1` and still produced the `security-regression-evidence` artifact.
+The security regression expectation was then restored through commit `a604f08`, and the regression suite was locally verified again with:
+
+```text
+7 passed in 0.06s
+```
+
+The configured `pull_request` trigger is implemented but has not been documented as an actually executed GitHub Actions run because no concrete PR execution has been verified.
 
 ---
 
@@ -1841,6 +2166,7 @@ The project does not treat planned stages as completed functionality.
 The methodology is currently defined for the controlled simulation environment of the Automotive Security Regression Lab.
 
 It does not define procedures for:
+
 * real vehicle security assessments
 * physical ECU testing
 * real CAN communication
@@ -1852,6 +2178,9 @@ It does not define procedures for:
 
 The methodology demonstrates engineering principles for reproducible security testing.
 It is not presented as a complete operational methodology for real-world automotive penetration testing.
+
+Phase 10 uses GitHub Actions only as an automation environment for the existing simulated security regression suite.
+No real vehicle, ECU, CAN network, OEM infrastructure, customer system, credential, or external automotive service is accessed by the CI workflow.
 
 ---
 
@@ -1887,9 +2216,14 @@ Regression Evidence
 Example Finding Documentation
         ↓
 Automated Security Regression Tests
+        ↓
+GitHub Actions CI Execution
+        ↓
+CI Evidence Artifact
 ```
 
 Implemented capabilities include:
+
 * deterministic ECU simulation
 * secure and vulnerable ECU modes
 * security-test abstractions
@@ -1904,6 +2238,11 @@ Implemented capabilities include:
 * TC-003 Regression Workflow
 * Phase-9 automated pytest security regression suite
 * local pytest verification
+* Phase-10 GitHub Actions CI workflow
+* CI execution of the existing security regression suite
+* CI Evidence JSON generation
+* GitHub Actions Evidence artifact upload
+* verified CI failure propagation
 
 The Phase-9 regression suite verifies seven scenarios covering:
 
@@ -1924,7 +2263,45 @@ Dedicated Phase-9 regression suite: 7 passed
 Complete pytest suite:              41 passed
 ```
 
+The Phase-10 CI verification status includes:
+
+```text
+Successful GitHub Actions push run:       [VERIFIED]
+Security regression CI job success:       [VERIFIED]
+CI evidence artifact upload:              [VERIFIED]
+Controlled CI failure propagation:        [VERIFIED]
+Evidence artifact after CI failure:       [VERIFIED]
+Pull-request execution:                   [NOT VERIFIED]
+```
+
+The successful GitHub Actions run was:
+
+```text
+Workflow: Security Regression
+Trigger: push
+Branch: main
+Commit: 78c943f
+Job: security-regression
+Status: Success
+Artifact: security-regression-evidence
+```
+
+The controlled failure test was performed on:
+
+```text
+Branch: ci/controlled-failure-test
+Failure commit: 25432a4
+Restore commit: a604f08
+```
+
+The temporary branch is retained as project evidence of the controlled CI failure and restoration workflow.
+The `main` branch remains on commit `78c943f` and was locally verified as clean and synchronized with `origin/main`.
+
+A GitHub Actions warning concerning the Node.js runtime used by the currently selected actions was observed during the verified runs.
+The warning did not cause a workflow failure and is treated as a technical maintenance note rather than a demonstrated pipeline error.
+
 The following capabilities belong to later project phases:
+
 * generalized security finding management
 * automated finding ingestion
 * root-cause management as a generalized lifecycle capability
@@ -1932,7 +2309,6 @@ The following capabilities belong to later project phases:
 * generalized retest workflow
 * historical regression comparison
 * generalized regression orchestration
-* CI/CD integration
 * end-to-end assessment
 * professional documentation package
 * technical review
@@ -1947,7 +2323,7 @@ SEC-002 — No security-relevant deviation reproduced in diagnostic message vali
 
 These are structured example findings and assessment records. They do not constitute a generalized finding-management implementation.
 Phase 9 additionally provides an automated pytest regression verification layer.
-This layer does not constitute a generalized regression-management platform and does not include CI/CD execution.
+Phase 10 additionally provides CI/CD execution of this regression layer and collection of the generated regression evidence as a GitHub Actions artifact.
 
 ---
 
@@ -1978,4 +2354,21 @@ Prevent regression
 Only the stages implemented in the current project phase are treated as verified capabilities.
 The methodology keeps the security requirement, system under test, test execution, evidence, and later security-lifecycle activities separate.
 Phase 9 strengthens the regression stage by providing automated pytest verification of established security properties while preserving the existing security-test and evidence architecture.
-This separation provides a controlled basis for extending individual security tests into a reproducible security regression workflow and, ultimately, an automated CI/CD process.
+Phase 10 extends this automated regression stage into GitHub Actions without introducing a second security-test or evidence implementation.
+The resulting CI path remains based on the same regression and Evidence architecture:
+
+```text
+Security Regression Tests
+        ↓
+EvidenceGenerator
+        ↓
+Evidence
+        ↓
+Evidence.to_json()
+        ↓
+CI Evidence JSON Files
+        ↓
+GitHub Actions Artifact
+```
+
+This provides a controlled basis for reproducible security regression testing and its automated execution in CI/CD while keeping generalized security finding management, historical comparison, and generalized lifecycle orchestration outside the current implementation.

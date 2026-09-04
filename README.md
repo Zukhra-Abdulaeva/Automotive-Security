@@ -1,3 +1,4 @@
+````
 # Automotive Security Regression Lab
 
 **From Security Finding to Reproducible Automotive Security Tests**
@@ -62,6 +63,10 @@ Finding Documentation
 Secure Retest
         ↓
 Automated Regression Verification
+        ↓
+CI Evidence
+        ↓
+GitHub Actions Artifact
 ```
 
 The project is developed incrementally. Each capability is added on top of the previously verified architecture.
@@ -70,7 +75,7 @@ The project is developed incrementally. Each capability is added on top of the p
 
 # Current Implementation
 
-The current implementation combines deterministic ECU simulation, security-test execution, structured evidence, example security findings, controlled regression verification, and automated pytest regression coverage.
+The current implementation combines deterministic ECU simulation, security-test execution, structured evidence, example security findings, controlled regression verification, automated pytest regression coverage, and CI/CD execution of the existing regression suite.
 
 The resulting workflow is:
 
@@ -102,9 +107,19 @@ Finding Assessment
 Secure Retest
         ↓
 Automated Regression Verification
+        ↓
+EvidenceGenerator
+        ↓
+Evidence.to_json()
+        ↓
+CI Evidence JSON Files
+        ↓
+GitHub Actions Artifact
 ```
 
 The implementation remains local, deterministic, hardware-independent, and network-independent.
+
+The CI workflow executes the existing automated regression implementation. It does not introduce a second Security Test implementation.
 
 ---
 
@@ -480,7 +495,7 @@ The suite is implemented in:
 04_tests/test_security_regression.py
 ```
 
-The automated suite currently verifies seven scenarios:
+The automated suite currently contains seven tests covering:
 
 1. unauthorized protected operation
 2. authorized protected operation
@@ -542,7 +557,8 @@ This automation does not introduce:
 * generalized regression orchestration
 * historical baseline comparison
 * automated finding ingestion
-* CI/CD integration
+
+CI/CD integration is implemented separately in Phase 10. The CI workflow executes this existing regression suite and consumes its generated evidence; it does not add another Security Test implementation.
 
 The automated regression suite therefore extends verification coverage while preserving the existing architecture.
 
@@ -656,6 +672,282 @@ Regression verification determines whether the corrected implementation satisfie
 
 ---
 
+# CI/CD Security Regression Pipeline
+
+Phase 10 integrates the existing automated security regression suite into GitHub Actions.
+
+The CI chain is:
+
+```text
+Security Regression Tests
+        ↓
+EvidenceGenerator
+        ↓
+Evidence
+        ↓
+Evidence.to_json()
+        ↓
+CI Evidence JSON Files
+        ↓
+GitHub Actions Artifact
+```
+
+The CI workflow is implemented in:
+
+```text
+.github/workflows/security-regression.yml
+```
+
+## Single Source of Truth
+
+`04_tests/test_security_regression.py` remains the central Security Regression test logic.
+
+GitHub Actions executes this existing regression test implementation:
+
+```text
+GitHub Actions
+        ↓
+04_tests/test_security_regression.py
+        ↓
+Existing Security Regression Logic
+```
+
+The CI workflow does not implement a second Security Test logic.
+
+The workflow is responsible for CI orchestration, evidence generation, and artifact upload. The Evidence Framework remains responsible for evidence generation, validation, and JSON serialization.
+
+## CI Workflow
+
+The workflow is configured for:
+
+```text
+push
+pull_request
+```
+
+The implemented CI sequence is:
+
+```text
+Repository Checkout
+        ↓
+Python 3.12
+        ↓
+Install pytest>=9,<10
+        ↓
+Run Security Regression Tests
+        ↓
+Generate CI Evidence
+        ↓
+Upload Evidence Artifact
+```
+
+The security regression test command is:
+
+```text
+pytest -v 04_tests/test_security_regression.py
+```
+
+Evidence generation is executed after the regression test step with `if: always()` so that evidence generation is attempted even when the pytest step fails.
+
+The generated evidence is written to:
+
+```text
+ci-evidence/
+```
+
+The CI artifact is uploaded with the name:
+
+```text
+security-regression-evidence
+```
+
+The artifact contains the generated JSON evidence files.
+
+## CI Evidence Output
+
+The current CI evidence generation produces six JSON files:
+
+```text
+ci-evidence/TC-003_unauthorized_protected_operation.json
+ci-evidence/TC-003_authorized_protected_operation.json
+ci-evidence/TC-003_invalid_message.json
+ci-evidence/TC-003_unsupported_operation.json
+ci-evidence/TC-003_boundary_input.json
+ci-evidence/TC-003_unexpected_state.json
+```
+
+The six files represent the evidence generated for the six regression scenarios.
+
+The seventh pytest test validates the regression evidence generation and evidence contents; it does not create a separate scenario evidence file.
+
+The evidence files use the existing Evidence model and `Evidence.to_json()` serialization.
+
+No separate CI evidence schema is introduced.
+
+## CI Failure Semantics
+
+The pytest step is intentionally not configured with `continue-on-error`.
+
+Therefore a regression assertion failure causes the GitHub Actions job to fail:
+
+```text
+Security Regression Assertion
+        ↓
+pytest FAIL
+        ↓
+GitHub Actions Job FAIL
+```
+
+Evidence generation and artifact upload use `if: always()`:
+
+```text
+Security Regression Assertion
+        ↓
+pytest FAIL
+        ↓
+GitHub Actions Job FAIL
+        ↓
+Evidence Generation
+        ↓
+Evidence Upload
+        ↓
+security-regression-evidence Artifact
+```
+
+This preserves the failure status of the regression job while keeping the generated evidence available for inspection.
+
+## Verified Successful CI Run
+
+The push of commit `78c943f` to `main` triggered an actual GitHub Actions execution.
+
+The verified run was:
+
+| Checkpoint | Status | Evidence |
+| --------------------------------- | ---------------- | --------------------- |
+| GitHub Actions execution | [VERIFIED] | Run #1 |
+| Trigger | [VERIFIED] | `push` |
+| Workflow | [VERIFIED] | `Security Regression` |
+| Branch | [VERIFIED] | `main` |
+| Commit | [VERIFIED] | `78c943f` |
+| Job | [VERIFIED] | `security-regression` |
+| Overall status | [VERIFIED] | `Success` |
+| Runtime | [VERIFIED] | 11 s |
+| Artifact | [VERIFIED] | 1 artifact |
+
+The artifact name is:
+
+```text
+security-regression-evidence
+```
+
+Artifact size:
+
+```text
+2.59 KB
+```
+
+SHA-256:
+
+```text
+e337895fd207dbfdeb30358cef5194c6a895b3e0d8e72feae9896a591585503f
+```
+
+The successful run demonstrates that the existing Security Regression suite can be executed in GitHub Actions and that the resulting evidence can be generated and uploaded as a CI artifact.
+
+## Controlled CI Failure Verification
+
+The CI failure behavior was verified separately on the dedicated branch:
+
+```text
+ci/controlled-failure-test
+```
+
+A single Security Regression assertion was intentionally changed to an incorrect expectation.
+
+The test commit was:
+
+```text
+25432a4 test: verify CI failure handling
+```
+
+The corresponding local pytest result was:
+
+```text
+1 failed, 6 passed
+```
+
+The subsequent GitHub Actions Run #2 was triggered by `push` and failed as expected.
+
+| Checkpoint | Status | Evidence |
+| -------------------------------- | ---------------- | ------------------------------ |
+| Controlled assertion failure | [VERIFIED] | `25432a4` |
+| Local pytest failure | [VERIFIED] | 1 failed, 6 passed |
+| GitHub Actions execution | [VERIFIED] | Run #2 |
+| Trigger | [VERIFIED] | `push` |
+| CI job | [VERIFIED] | `security-regression` |
+| GitHub Actions status | [VERIFIED] | `Failed` |
+| Exit code | [VERIFIED] | `1` |
+| Evidence artifact despite failure | [VERIFIED] | `security-regression-evidence` |
+| Artifact size | [VERIFIED] | 2.59 KB |
+
+The controlled failure therefore verifies the intended CI behavior:
+
+```text
+Security Regression Assertion
+        ↓
+pytest FAIL
+        ↓
+GitHub Actions Job FAIL
+        ↓
+Evidence Generation / Upload
+        ↓
+security-regression-evidence Artifact
+```
+
+The intentionally introduced failure was restored with:
+
+```text
+a604f08 test: restore security regression expectation
+```
+
+The restored regression suite was executed locally again with:
+
+```text
+7 passed in 0.06s
+```
+
+`main` remained unchanged at commit `78c943f` and remained synchronized with `origin/main`.
+
+## CI Verification Boundary
+
+The actual `push` execution, successful artifact generation, controlled CI failure, and artifact generation after failure have been verified.
+
+A separate actual `pull_request` GitHub Actions execution has not yet been verified and is therefore not documented as completed.
+
+The workflow configuration nevertheless includes the `pull_request` trigger.
+
+## Technical Note
+
+GitHub reported a technical warning:
+
+```text
+Node.js 20 is deprecated
+```
+
+The warning was observed in connection with the currently used GitHub Actions:
+
+```text
+actions/checkout@v4
+actions/setup-python@v5
+actions/upload-artifact@v4
+```
+
+The verified workflow behavior was correct for both the successful CI run and the controlled failure run.
+
+The Node.js warning is therefore currently treated as a technical note and not as a demonstrated CI pipeline failure.
+
+---
+
 # Verification
 
 The repository was locally verified using the project-specific Python virtual environment.
@@ -728,6 +1020,22 @@ Actual   = ACCESS_GRANTED
 Result   = FAIL
 ```
 
+The dedicated Security Regression suite was also verified independently:
+
+```text
+pytest -v 04_tests/test_security_regression.py
+```
+
+Result:
+
+```text
+7 passed
+```
+
+CI execution was additionally verified through the successful GitHub Actions run and the controlled CI failure described in the CI/CD Security Regression Pipeline section.
+
+The CI evidence generation was verified to produce six JSON evidence files and upload them as the `security-regression-evidence` artifact.
+
 ---
 
 # Testing Philosophy
@@ -752,9 +1060,13 @@ Regression Workflow Tests
 Automated Regression Suite
         ↓
 Complete pytest Suite
+        ↓
+CI Execution
 ```
 
 Testing the infrastructure itself helps identify regressions in the mechanisms used to execute and evaluate security tests.
+
+The CI pipeline does not replace the local test suite. It executes the established Security Regression suite in an automated environment and preserves the resulting evidence as a CI artifact.
 
 ---
 
@@ -812,7 +1124,8 @@ automotive-security-regression-lab/
 │
 └── .github/
     └── workflows/
-        └── .gitkeep
+        ├── .gitkeep
+        └── security-regression.yml
 ```
 
 The `.gitkeep` files only preserve otherwise empty directories in Git. They contain no project logic.
@@ -826,6 +1139,14 @@ The project currently uses:
 * Python
 * pytest
 * Python standard library components where practical
+* GitHub Actions for CI execution
+
+The CI workflow uses:
+
+```text
+Python 3.12
+pytest>=9,<10
+```
 
 The implementation intentionally keeps runtime dependencies small.
 
@@ -836,6 +1157,8 @@ The laboratory is:
 * hardware-independent
 * network-independent
 * reproducible
+
+The CI workflow does not require real ECU hardware, vehicle-network access, external ECU availability, or external security services.
 
 ---
 
@@ -879,6 +1202,11 @@ The current implementation provides:
 * SEC-001 and SEC-002 example finding documentation
 * automated pytest regression verification
 * local reproducible verification
+* GitHub Actions execution of the Security Regression suite
+* CI evidence generation
+* CI evidence JSON serialization
+* GitHub Actions artifact upload
+* verified CI failure handling with evidence artifact generation
 
 The following capabilities remain outside the current implementation:
 
@@ -892,13 +1220,15 @@ The following capabilities remain outside the current implementation:
 * generalized remediation tracking
 * historical finding comparison
 * generalized regression orchestration
-* CI/CD workflows
+* automated pull-request execution verification
 * real ECU communication
 * real CAN communication
 * real UDS communication
 * real vehicle-network interaction
 
 These capabilities are reserved for later development.
+
+The CI/CD workflow is implemented for the current Security Regression suite. It is not a generalized CI/CD security-testing platform.
 
 ---
 
@@ -1000,6 +1330,23 @@ These capabilities are reserved for later development.
 * evidence validation verification
 * complete local pytest verification
 
+### CI/CD Security Regression Pipeline
+
+* GitHub Actions workflow
+* `push` trigger
+* `pull_request` trigger
+* Python 3.12 CI environment
+* installation of `pytest>=9,<10`
+* execution of the existing `04_tests/test_security_regression.py`
+* CI evidence generation
+* six CI evidence JSON files
+* GitHub Actions artifact upload
+* artifact generation with `if: always()`
+* evidence availability after a controlled regression failure
+* verified successful CI execution
+* verified controlled CI failure handling
+* verified restoration of the regression expectation
+
 ---
 
 # Current Verification State
@@ -1014,6 +1361,12 @@ The dedicated automated regression suite reports:
 
 ```text
 7 passed
+```
+
+The CI evidence generation currently produces:
+
+```text
+6 JSON files
 ```
 
 The verified implementation therefore covers:
@@ -1032,8 +1385,10 @@ TC-002
 TC-003 Regression Workflow
         +
 Automated Regression Verification
+        +
+CI/CD Security Regression Pipeline
         ↓
-Complete pytest Verification
+Complete Local and CI Verification
 ```
 
 The controlled regression behavior is:
@@ -1065,6 +1420,38 @@ ACCESS_GRANTED
 ```
 
 The example finding artifacts are documentation outputs and are verified separately from automated pytest execution.
+
+The successful CI run verified the following:
+
+```text
+GitHub Actions
+        ↓
+Security Regression
+        ↓
+Success
+        ↓
+Evidence Generation
+        ↓
+security-regression-evidence
+```
+
+The controlled CI failure verified:
+
+```text
+Security Regression Assertion
+        ↓
+pytest FAIL
+        ↓
+GitHub Actions Job FAIL
+        ↓
+Evidence Generation / Upload
+        ↓
+security-regression-evidence
+```
+
+The actual `push` CI execution has been verified.
+
+A separate actual `pull_request` execution has not yet been verified.
 
 ---
 
@@ -1098,6 +1485,10 @@ Reuse Security Property for Retest
 Verify Regression Condition
         ↓
 Automate Regression Verification
+        ↓
+Execute Regression in CI
+        ↓
+Preserve CI Evidence as Artifact
 ```
 
 The project also demonstrates how assessment results can be documented as structured security finding artifacts:
@@ -1115,6 +1506,9 @@ Security Finding Documentation
 `SEC-002` demonstrates documentation of an assessment result where no security-relevant deviation was reproduced.
 
 The current implementation does not provide a generalized finding-management or regression platform.
+
+The CI implementation is likewise specific to the established Security Regression suite. It provides automated execution 
+and evidence artifact handling, but not generalized security-test orchestration.
 
 The intended future extension is:
 
@@ -1156,6 +1550,8 @@ It demonstrates:
 * simulated fix and retest methodology
 * regression workflow verification
 * automated regression testing
+* CI/CD execution of an established security regression suite
+* CI evidence generation and artifact handling
 * architectural documentation
 * structured security finding documentation
 * traceability from security tests to findings
@@ -1189,7 +1585,7 @@ It does not represent:
 | `02_test_cases/TC-003-regression-workflow.md`      | Detailed TC-003 regression workflow specification                      |
 | `01_threat_model/01_attack_surface.md`             | Modeled attack-surface information                                     |
 
-The README provides the project-level view. Detailed implementation, methodology, evidence, architecture, and test specifications are maintained in the corresponding documentation files.
+The README provides the project-level view. Detailed implementation, methodology, evidence, architecture, CI/CD, and test specifications are maintained in the corresponding documentation files.
 
 ---
 
@@ -1213,6 +1609,8 @@ TC-002 Message Validation
 TC-003 Regression Workflow
         ↓
 Automated Regression Verification
+        ↓
+CI/CD Security Regression Pipeline
 ```
 
 The assessment documentation layer is:
@@ -1241,9 +1639,27 @@ Regression Evidence
 Automated Regression Verification
 ```
 
-The current implementation therefore demonstrates not only security-test execution and structured evidence generation, but also controlled security finding documentation, simulated remediation and retest, and automated verification of the resulting secure behavior.
+The CI evidence layer is:
+
+```text
+Security Regression Tests
+        ↓
+EvidenceGenerator
+        ↓
+Evidence
+        ↓
+Evidence.to_json()
+        ↓
+CI Evidence JSON Files
+        ↓
+GitHub Actions Artifact
+```
+
+The current implementation therefore demonstrates not only security-test execution and structured evidence generation, but also controlled security finding documentation, simulated remediation and retest, automated verification of the resulting secure behavior, and execution of the established regression suite in GitHub Actions with preserved CI evidence.
 
 The regression implementation remains specific to the diagnostic authorization security property established by TC-001. It is not a generalized regression platform.
+
+The CI workflow executes the existing Security Regression suite and does not introduce a second Security Test implementation.
 
 The long-term workflow remains:
 

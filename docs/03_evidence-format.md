@@ -20,7 +20,7 @@ expected
 actual
 result
 notes
-```
+````
 
 The same evidence model is used for the existing security test scenarios and
 for the TC-003 regression workflow.
@@ -68,17 +68,17 @@ notes
 
 The required fields are:
 
-| Field | Description |
+| Field           | Description                                       |
 | --------------- | ------------------------------------------------- |
-| `test_id` | Identifier of the executed security test |
-| `timestamp` | UTC timestamp of the evidence creation |
-| `target` | Test target against which the test was executed |
+| `test_id`       | Identifier of the executed security test          |
+| `timestamp`     | UTC timestamp of the evidence creation            |
+| `target`        | Test target against which the test was executed   |
 | `preconditions` | Conditions that were established before execution |
-| `input` | Input used by the security test |
-| `expected` | Behavior expected by the test |
-| `actual` | Behavior actually observed |
-| `result` | Test execution result: `PASS` or `FAIL` |
-| `notes` | Additional execution context or observations |
+| `input`         | Input used by the security test                   |
+| `expected`      | Behavior expected by the test                     |
+| `actual`        | Behavior actually observed                        |
+| `result`        | Test execution result: `PASS` or `FAIL`           |
+| `notes`         | Additional execution context or observations      |
 
 The `test_id` identifies the test case associated with the execution.
 
@@ -293,8 +293,9 @@ a fixed value.
 JSON serialization provides a machine-readable representation that can later
 be consumed by automation or stored as a test artifact.
 
-CI/CD pipeline implementation is outside the scope of the Evidence
-Framework.
+The Evidence Framework itself does not implement CI/CD orchestration.
+Phase 10 uses the existing Evidence Framework from the GitHub Actions
+workflow to generate and upload regression evidence.
 
 ## Security Testing Context
 
@@ -388,11 +389,13 @@ It does not implement ECU security policy.
 
 Evidence generation does not require:
 
-- network access
-- physical hardware
-- a real ECU
-- external services
-- random test data
+```text
+network access
+physical hardware
+a real ECU
+external services
+random test data
+```
 
 The Evidence Framework can therefore be tested locally and reproducibly.
 
@@ -413,26 +416,36 @@ for the TC-003 evidence test.
 
 Implemented in Phase 4:
 
-- structured evidence model
-- mandatory field validation
-- `PASS` / `FAIL` semantics
-- runtime timestamp
-- JSON serialization
-- integration with the existing Phase 3 test result
-- deterministic local evidence tests
+```text
+structured evidence model
+mandatory field validation
+PASS / FAIL semantics
+runtime timestamp
+JSON serialization
+integration with the existing Phase 3 test result
+deterministic local evidence tests
+```
 
 Not implemented in Phase 4:
 
-- security finding management
-- severity management
-- CVSS calculation
-- root-cause management
-- fix tracking
-- retest workflow
-- complete security regression suite
-- CI/CD pipeline
-- real ECU communication
-- real vehicle communication
+```text
+security finding management
+severity management
+CVSS calculation
+root-cause management
+fix tracking
+retest workflow
+complete security regression suite
+CI/CD pipeline
+real ECU communication
+real vehicle communication
+```
+
+The Phase-4 scope describes the capability introduced in Phase 4.
+Later phases extend the use of the existing Evidence Framework without
+changing its fundamental evidence model.
+
+---
 
 ## Phase 5 — TC-001 Evidence Integration
 
@@ -701,9 +714,9 @@ TestResult
 Evidence
 ```
 
-For the current TC-003 implementation, the regression test uses the existing
-`TC-001` test identifier because the regression verifies the security
-property originally established by TC-001.
+For the current TC-003 implementation, the regression workflow reuses the
+existing `TC-001` security-test identifier because the regression verifies
+the security property originally established by TC-001.
 
 The `test_tc003_*` pytest function names identify the Phase-7 regression test
 functions. They do not change the `SecurityTestCase.test_id`.
@@ -734,6 +747,11 @@ TC-001
 
 TC-003 identifies the regression workflow, while TC-001 identifies the
 original security test case whose security property is being re-tested.
+
+The Phase-9 automated regression suite uses distinct regression
+`SecurityTestCase` instances with `test_id = TC-003`. This is separate from
+the Phase-7 lifecycle test described above and does not change the identity
+of the original TC-001 security property.
 
 ## Serialization
 
@@ -792,8 +810,9 @@ result
 notes
 ```
 
-TC-003 uses the existing TC-001 security-test definition and does not
-introduce a separate `SecurityTestCase` evidence identity.
+TC-003 uses the existing TC-001 security-test definition for the Phase-7
+controlled regression lifecycle and does not introduce a separate evidence
+schema.
 
 The evidence workflow is:
 
@@ -911,9 +930,9 @@ A successful secure regression retest may produce:
 }
 ```
 
-The `test_id` remains `TC-001` because TC-003 reuses the existing TC-001
-security-test definition. TC-003 identifies the regression workflow, not a
-new security-test definition.
+The `test_id` remains `TC-001` in this Phase-7 lifecycle example because
+TC-003 reuses the existing TC-001 security-test definition. TC-003 identifies
+the regression workflow, not a new security-test definition.
 
 The generated evidence is subsequently validated using
 `Evidence.validate()`.
@@ -929,7 +948,7 @@ The Evidence Framework is integrated into the automated security regression test
 
 This integration does not introduce a new evidence schema or a separate regression-specific evidence model. Instead, the existing `EvidenceGenerator`, `Evidence`, and validation mechanisms are used directly with executed regression test cases and their results.
 
-The automated regression tests now verify two related properties:
+The automated regression tests verify two related properties:
 
 1. the security behavior remains correct, and
 2. the evidence representing that behavior is correct and internally consistent.
@@ -988,7 +1007,7 @@ The regression test does not stop after checking the ECU response.
 
 After evidence generation, the evidence object is explicitly validated:
 
-```python
+```text
 evidence.validate()
 ```
 
@@ -1041,7 +1060,7 @@ The evidence does not itself reproduce the historical vulnerable behavior. Vulne
 
 The automated regression scenarios create a fresh secure ECU instance for each scenario:
 
-```python
+```text
 ecu = ECUSimulator(
     mode=SecurityMode.SECURE,
     state=state,
@@ -1136,23 +1155,330 @@ Evidence documents the observed test result and execution context. It does not r
 
 The current implementation supports:
 
-* structured security-test evidence
-* deterministic evidence generation
-* explicit execution preconditions
-* expected-versus-actual result recording
-* PASS/FAIL semantics
-* evidence validation
-* JSON serialization and deserialization
-* integration with TC-001, TC-002, and TC-003 security testing
-* automated verification that regression evidence represents the executed secure retest
+```text
+structured security-test evidence
+deterministic evidence generation
+explicit execution preconditions
+expected-versus-actual result recording
+PASS/FAIL semantics
+evidence validation
+JSON serialization and deserialization
+integration with TC-001, TC-002, and TC-003 security testing
+automated verification that regression evidence represents the executed secure retest
+```
 
-The current implementation does not provide:
+The current Evidence Framework does not provide:
 
-* automated security-finding ingestion
-* historical evidence comparison
-* baseline management
-* generalized regression orchestration
-* automated remediation tracking
-* CI/CD evidence collection
+```text
+automated security-finding ingestion
+historical evidence comparison
+baseline management
+generalized regression orchestration
+automated remediation tracking
+```
 
-These capabilities remain outside the current Evidence Framework boundary.
+CI/CD evidence collection is implemented in Phase 10 at the workflow level by
+reusing the existing Evidence Framework. It does not constitute a new
+Evidence Framework capability or a change to the evidence schema.
+
+---
+
+## Phase 10 — CI/CD Evidence Integration
+
+Phase 10 integrates the existing automated Security Regression suite with
+GitHub Actions.
+
+The CI workflow is defined in:
+
+```text
+.github/workflows/security-regression.yml
+```
+
+The workflow executes the existing regression test logic from:
+
+```text
+04_tests/test_security_regression.py
+```
+
+This file remains the Single Source of Truth for the Security Regression test
+logic. GitHub Actions does not introduce a second Security Regression test
+implementation.
+
+The CI evidence chain is:
+
+```text
+Security Regression Tests
+        ↓
+EvidenceGenerator
+        ↓
+Evidence
+        ↓
+Evidence.to_json()
+        ↓
+CI Evidence JSON Files
+        ↓
+GitHub Actions Artifact
+```
+
+The workflow is configured for:
+
+```text
+push
+pull_request
+```
+
+The verified CI environment uses:
+
+```text
+Python 3.12
+pytest>=9,<10
+```
+
+The relevant CI execution sequence is:
+
+```text
+Repository Checkout
+        ↓
+Python 3.12 Setup
+        ↓
+pytest Installation
+        ↓
+04_tests/test_security_regression.py
+        ↓
+Regression Evidence Generation
+        ↓
+Evidence.to_json()
+        ↓
+Evidence Artifact Upload
+```
+
+The Evidence Framework is therefore reused by CI rather than replaced by
+CI-specific evidence logic.
+
+### CI Evidence Generation
+
+Phase 10 generates six JSON evidence files from the automated regression
+execution.
+
+The generated evidence files are:
+
+```text
+TC-003_unauthorized_protected_operation.json
+TC-003_authorized_protected_operation.json
+TC-003_invalid_message.json
+TC-003_unsupported_operation.json
+TC-003_boundary_input.json
+TC-003_unexpected_state.json
+```
+
+The evidence files are generated from the existing regression execution and
+serialized using the existing `Evidence.to_json()` mechanism.
+
+The resulting directory is:
+
+```text
+ci-evidence/
+```
+
+The directory is uploaded by GitHub Actions as:
+
+```text
+security-regression-evidence
+```
+
+This does not introduce a new evidence schema. The CI artifact contains the
+same structured Evidence JSON representation used by the existing Evidence
+Framework.
+
+### CI Success and Failure Handling
+
+The CI workflow separates the Security Regression test outcome from the
+availability of regression evidence.
+
+The pytest step is allowed to fail normally so that a security regression
+failure causes the GitHub Actions job to fail.
+
+Evidence generation and artifact upload are configured to execute with
+`always()`.
+
+The intended failure path is therefore:
+
+```text
+Security Regression Assertion
+        ↓
+pytest FAIL
+        ↓
+GitHub Actions Job FAIL
+        ↓
+Evidence Generation
+        ↓
+Evidence Artifact Upload
+```
+
+This behavior was verified through a controlled CI failure test.
+
+A single Security Regression assertion was intentionally changed so that the
+expected status no longer matched the actual secure ECU response.
+
+The local result was:
+
+```text
+1 failed, 6 passed
+```
+
+The corresponding GitHub Actions execution failed with exit code `1`, while
+the `security-regression-evidence` artifact was still generated and uploaded.
+
+This verifies that CI failure does not prevent the configured evidence path
+from producing an artifact.
+
+### Verified Successful CI Execution
+
+The push of commit `78c943f` to `main` triggered the GitHub Actions workflow
+and completed successfully.
+
+The verified execution was:
+
+```text
+Workflow: Security Regression
+Run: #1
+Trigger: push
+Branch: main
+Commit: 78c943f
+Job: security-regression
+Status: Success
+Duration: 11 s
+Artifact count: 1
+Artifact: security-regression-evidence
+Artifact size: 2.59 KB
+```
+
+The SHA-256 digest of the generated artifact was:
+
+```text
+e337895fd207dbfdeb30358cef5194c6a895b3e0d8e72feae9896a591585503f
+```
+
+The CI evidence artifact was therefore verified for the successful workflow
+execution.
+
+### Verified Controlled CI Failure
+
+The controlled failure was executed on:
+
+```text
+ci/controlled-failure-test
+```
+
+The failure commit was:
+
+```text
+25432a4 test: verify CI failure handling
+```
+
+The corresponding GitHub Actions Run #2 was:
+
+```text
+Workflow: Security Regression
+Run: #2
+Trigger: push
+Branch: ci/controlled-failure-test
+Commit: 25432a4
+Job: security-regression
+Status: Failed
+Exit Code: 1
+Artifact: security-regression-evidence
+Artifact size: 2.59 KB
+```
+
+The failure demonstrates that the Security Regression assertion correctly
+causes the CI job to fail while the configured evidence generation and
+artifact upload path remains available.
+
+The intentional test change was subsequently restored with:
+
+```text
+a604f08 test: restore security regression expectation
+```
+
+The restored regression suite was locally verified with:
+
+```text
+7 passed in 0.06s
+```
+
+The `main` branch remained unchanged at `78c943f` and was clean and
+synchronized with `origin/main`.
+
+### CI Trigger Verification Status
+
+The `push` trigger has been verified through actual GitHub Actions executions,
+including the successful Run #1 and the controlled failure Run #2.
+
+The `pull_request` trigger is configured in the workflow but has not yet been
+verified through a separate actual pull-request execution.
+
+Therefore, the current Evidence Framework documentation does not treat a
+pull-request execution as a completed verification result.
+
+### Technical CI Note
+
+GitHub Actions reported a Node.js 20 deprecation warning for the currently
+used actions during the verified runs.
+
+The affected actions were:
+
+```text
+actions/checkout@v4
+actions/setup-python@v5
+actions/upload-artifact@v4
+```
+
+The warning did not prevent the successful CI execution and did not prevent
+the controlled failure behavior.
+
+This is documented as a technical compatibility note and not as a
+pipeline failure.
+
+### Phase-10 Evidence Boundary
+
+Phase 10 extends the use of the existing Evidence Framework into the CI
+execution path.
+
+The architecture remains:
+
+```text
+Security Regression Test
+        ↓
+TestResult
+        ↓
+EvidenceGenerator
+        ↓
+Evidence
+        ↓
+Evidence.to_json()
+        ↓
+CI Evidence JSON Files
+        ↓
+GitHub Actions Artifact
+```
+
+No new evidence fields, evidence model, validation mechanism, or serialization
+format is introduced by Phase 10.
+
+The CI workflow also does not implement separate Security Regression test
+logic.
+
+The following capabilities remain outside the current Evidence Framework:
+
+```text
+automated security-finding ingestion
+historical evidence comparison
+baseline management
+generalized regression orchestration
+automated remediation tracking
+```
+
+The GitHub Actions workflow provides CI execution and artifact handling for
+the currently implemented regression suite. It does not constitute a
+generalized security evidence-management platform.

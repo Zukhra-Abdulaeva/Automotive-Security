@@ -12,13 +12,13 @@ From Security Finding to Reproducible Automotive Security Tests
 
 ## Current Status
 
-**Current Phase:** Phase 9 — pytest Regression Suite
+**Current Phase:** Phase 10 — CI/CD Security Regression Pipeline
 
-**Status:** Implemented and locally verified
+**Status:** Implemented and verified
 
-Phase 9 adds an automated pytest regression suite for the established security properties and integrates the existing Evidence Framework into automated regression verification.
+Phase 10 integrates the existing automated security regression suite into a GitHub Actions CI/CD workflow and makes the generated regression evidence available as a CI artifact.
 
-Phase 7 remains the verified regression-workflow baseline. Phase 8 documents representative security findings based on the established workflow.
+Phase 7 remains the verified regression-workflow baseline. Phase 8 documents representative security findings based on the established workflow. Phase 9 introduced the automated pytest regression suite. Phase 10 extends this existing regression execution into CI/CD without introducing a second Security Test logic.
 
 The current implementation provides:
 
@@ -41,8 +41,14 @@ The current implementation provides:
 * automated verification of generated regression evidence
 * explicit Evidence validation through `evidence.validate()`
 * authorized-behavior verification
+* GitHub Actions execution of the existing security regression suite
+* CI evidence generation from the existing Evidence Framework
+* CI evidence JSON artifact upload
+* verified CI failure handling with evidence artifact generation
 
 The automated regression suite reuses the existing security-test architecture and Evidence Framework. It does not introduce a separate regression test model, evidence model, target abstraction, or evidence-generation mechanism.
+
+The CI/CD workflow also does not implement a second Security Test logic. It executes `04_tests/test_security_regression.py`, uses the existing Evidence Framework for evidence generation, and handles CI orchestration and artifact upload.
 
 The project remains a local simulation. No real vehicle, ECU, CAN, UDS, OEM, production, or external vehicle-network system is involved.
 
@@ -61,7 +67,7 @@ The project remains a local simulation. No real vehicle, ECU, CAN, UDS, OEM, pro
 | Phase 7  | TC-003 Regression Workflow       | Completed |
 | Phase 8  | Example Findings                 | Completed |
 | Phase 9  | pytest Regression Suite          | Completed |
-| Phase 10 | CI/CD                            | Planned   |
+| Phase 10 | CI/CD                            | Completed |
 | Phase 11 | End-to-End Assessment            | Planned   |
 | Phase 12 | Professional Documentation       | Planned   |
 | Phase 13 | Technical Review                 | Planned   |
@@ -265,6 +271,8 @@ JSON
 ```
 
 The execution timestamp is generated at runtime using a UTC ISO-8601 representation.
+
+The Evidence Framework itself does not implement CI/CD orchestration. Phase 10 uses the existing Evidence Framework within GitHub Actions to generate and publish CI evidence artifacts.
 
 ---
 
@@ -478,6 +486,7 @@ A corrected implementation must therefore satisfy:
 authorization = false
 
 +
+
 PROTECTED_OPERATION
 
 ↓
@@ -977,6 +986,308 @@ Phase 9 does not implement historical evidence comparison, baseline management, 
 
 ---
 
+# Phase 10 — CI/CD Security Regression Pipeline
+
+**Status: Implemented and verified**
+
+Phase 10 integrates the existing Phase-9 automated security regression suite into GitHub Actions.
+
+The CI/CD implementation does not introduce a second Security Test logic. The existing regression test module remains the Single Source of Truth:
+
+```text
+04_tests/test_security_regression.py
+```
+
+GitHub Actions executes this existing regression logic and uses the existing Evidence Framework for evidence generation.
+
+The central CI evidence chain is:
+
+```text
+Security Regression Tests
+        ↓
+EvidenceGenerator
+        ↓
+Evidence
+        ↓
+Evidence.to_json()
+        ↓
+CI Evidence JSON Files
+        ↓
+GitHub Actions Artifact
+```
+
+### Single Source of Truth
+
+`04_tests/test_security_regression.py` remains the central Security Regression test implementation.
+
+The CI workflow executes:
+
+```text
+pytest -v 04_tests/test_security_regression.py
+```
+
+No separate Security Test implementation is introduced in the GitHub Actions workflow.
+
+The CI workflow is responsible for:
+
+* installing the required test dependency
+* executing the existing regression suite
+* generating CI evidence
+* uploading the generated evidence as an artifact
+
+Security behavior and expected results remain defined by the existing regression test implementation and security-test architecture.
+
+### CI Workflow
+
+The workflow is:
+
+```text
+.github/workflows/security-regression.yml
+```
+
+The configured triggers are:
+
+```text
+push
+pull_request
+```
+
+The workflow performs:
+
+```text
+Repository Checkout
+        ↓
+Python 3.12
+        ↓
+Install pytest>=9,<10
+        ↓
+Run Security Regression Suite
+        ↓
+Generate CI Evidence
+        ↓
+Upload Evidence Artifact
+```
+
+The CI evidence is generated into:
+
+```text
+ci-evidence/
+```
+
+The workflow generates six JSON evidence files:
+
+```text
+TC-003_unauthorized_protected_operation.json
+TC-003_authorized_protected_operation.json
+TC-003_invalid_message.json
+TC-003_unsupported_operation.json
+TC-003_boundary_input.json
+TC-003_unexpected_state.json
+```
+
+The seventh pytest test validates the generated regression evidence within the regression suite. It does not create a separate seventh CI evidence file.
+
+### CI Evidence Generation
+
+The CI workflow uses the existing `EvidenceGenerator` and `Evidence` implementation.
+
+The evidence-generation step executes after the regression test step and is configured with:
+
+```text
+if: always()
+```
+
+This ensures that evidence generation is attempted even when the regression test job has failed.
+
+The evidence is then uploaded using a separate artifact step that is also configured with:
+
+```text
+if: always()
+```
+
+The CI failure therefore does not prevent the generated evidence from being made available as a GitHub Actions artifact.
+
+### Successful GitHub Actions Verification
+
+A successful GitHub Actions execution was verified for the push of commit:
+
+```text
+78c943f
+```
+
+The verified execution was:
+
+| Checkpoint | Status | Evidence |
+| ---------- | ------ | -------- |
+| Actual GitHub Actions execution | ✅ **[VERIFIED]** | Run #1 |
+| Trigger | ✅ **[VERIFIED]** | `push` |
+| Workflow | ✅ **[VERIFIED]** | `Security Regression` |
+| Branch | ✅ **[VERIFIED]** | `main` |
+| Commit | ✅ **[VERIFIED]** | `78c943f` |
+| Job | ✅ **[VERIFIED]** | `security-regression` |
+| Overall status | ✅ **[VERIFIED]** | `Success` |
+| Runtime | ✅ **[VERIFIED]** | 11 s |
+| Artifact | ✅ **[VERIFIED]** | 1 artifact |
+
+The artifact name is:
+
+```text
+security-regression-evidence
+```
+
+Artifact size:
+
+```text
+2.59 KB
+```
+
+SHA-256:
+
+```text
+e337895fd207dbfdeb30358cef5194c6a895b3e0d8e72feae9896a591585503f
+```
+
+### Controlled CI Failure Verification
+
+A controlled CI failure was performed on the dedicated branch:
+
+```text
+ci/controlled-failure-test
+```
+
+A single Security Regression assertion was intentionally changed to an incorrect expectation.
+
+The commit was:
+
+```text
+25432a4 test: verify CI failure handling
+```
+
+The local result was:
+
+```text
+1 failed, 6 passed
+```
+
+The subsequent GitHub Actions Run #2 was triggered by `push` and failed as expected.
+
+| Checkpoint | Status | Evidence |
+| ---------- | ------ | -------- |
+| Controlled assertion failure | ✅ **[VERIFIED]** | `25432a4` |
+| Local pytest failure | ✅ **[VERIFIED]** | 1 failed, 6 passed |
+| GitHub Actions execution | ✅ **[VERIFIED]** | Run #2 |
+| Trigger | ✅ **[VERIFIED]** | `push` |
+| CI job | ✅ **[VERIFIED]** | `security-regression` |
+| GitHub Actions status | ✅ **[VERIFIED]** | `Failed` |
+| Exit code | ✅ **[VERIFIED]** | `1` |
+| Evidence artifact despite failure | ✅ **[VERIFIED]** | `security-regression-evidence` |
+| Artifact size | ✅ **[VERIFIED]** | 2.59 KB |
+
+The verified failure chain is:
+
+```text
+Security Regression Assertion
+        ↓
+pytest FAIL
+        ↓
+GitHub Actions Job FAIL
+        ↓
+Evidence Generation / Upload
+        ↓
+security-regression-evidence Artifact
+```
+
+The controlled failure was subsequently restored with:
+
+```text
+a604f08 test: restore security regression expectation
+```
+
+The restored regression suite was executed locally again with:
+
+```text
+7 passed in 0.06s
+```
+
+`main` remained unchanged at:
+
+```text
+78c943f
+```
+
+and remained clean and synchronized with `origin/main`.
+
+### Pull-Request Execution Status
+
+The workflow is configured for both:
+
+```text
+push
+pull_request
+```
+
+The actual `push` execution has been verified.
+
+A separate actual GitHub Actions `pull_request` execution has not yet been verified and is therefore not documented as completed.
+
+### Technical Note
+
+GitHub reported the following warning during the verified workflow execution:
+
+```text
+Node.js 20 is deprecated
+```
+
+The warning was associated with the currently used GitHub Actions:
+
+```text
+actions/checkout@v4
+actions/setup-python@v5
+actions/upload-artifact@v4
+```
+
+The workflow itself executed correctly, including the successful run and the controlled failure behavior.
+
+The warning is therefore documented as:
+
+```text
+[TECHNICAL NOTE]
+```
+
+The warning is observed, but its future compatibility impact has not been independently assessed in this project.
+
+### Phase-10 Scope
+
+Phase 10 provides:
+
+* GitHub Actions workflow integration
+* `push` trigger configuration
+* `pull_request` trigger configuration
+* Python 3.12 CI environment
+* installation of `pytest>=9,<10`
+* execution of the existing Security Regression suite
+* CI evidence generation through the existing Evidence Framework
+* six CI evidence JSON files
+* evidence artifact upload
+* evidence generation after test failure
+* evidence artifact availability after test failure
+* verified successful CI execution
+* verified controlled CI failure handling
+* preservation of the existing Security Test Single Source of Truth
+
+Phase 10 does not provide:
+
+* a second Security Test implementation
+* a separate CI-specific evidence model
+* historical evidence comparison
+* baseline management
+* generalized regression orchestration
+* automated security-finding ingestion
+* automated remediation tracking
+* verified pull-request execution
+
+---
+
 ## Complete Test Suite
 
 The complete suite was executed from the project root with:
@@ -1017,7 +1328,7 @@ The test count reflects the current repository state and is not treated as a per
 
 # Current Quality Gate
 
-Phase 9 verification confirms:
+Phase 10 verification confirms:
 
 * TC-001 is implemented and verified
 * TC-002 is implemented and verified
@@ -1046,6 +1357,13 @@ Phase 9 verification confirms:
 * no separate regression-specific Evidence model was introduced
 * no new ECU communication layer or target abstraction was introduced
 * no real automotive communication was introduced
+* the existing regression suite is executed by GitHub Actions
+* CI evidence is generated from the existing Evidence Framework
+* CI evidence is uploaded as a GitHub Actions artifact
+* successful GitHub Actions execution has been verified
+* controlled GitHub Actions failure handling has been verified
+* evidence artifact generation and upload remain available after a controlled regression failure
+* `main` remains clean and synchronized with `origin/main`
 
 ### Phase-8 Documentation Status
 
@@ -1083,7 +1401,33 @@ Phase 9 verification confirms:
 * the dedicated regression suite passes all 7 tests
 * the complete pytest suite passes all 41 current tests
 
-**Current result: Phase-7 regression workflow, Phase-8 finding documentation, and Phase-9 automated regression implementation and verification are complete.**
+### Phase-10 CI/CD Status
+
+Phase 10 verification confirms:
+
+* GitHub Actions workflow is implemented
+* `push` trigger is configured
+* `pull_request` trigger is configured
+* Python 3.12 is configured
+* `pytest>=9,<10` is installed in CI
+* the existing `04_tests/test_security_regression.py` suite is executed
+* no second Security Test logic is implemented in the workflow
+* CI evidence is generated through the existing Evidence Framework
+* six CI evidence JSON files are generated
+* evidence is uploaded as `security-regression-evidence`
+* evidence generation uses `if: always()`
+* artifact upload uses `if: always()`
+* successful GitHub Actions Run #1 is verified
+* controlled failure GitHub Actions Run #2 is verified
+* the controlled failure produces CI job failure with exit code `1`
+* the evidence artifact remains available after the controlled failure
+* the controlled regression assertion was restored
+* the restored regression suite passes locally
+* `main` remains on `78c943f` and synchronized with `origin/main`
+* an actual pull-request execution has not yet been verified
+* the observed Node.js 20 deprecation warning is documented as a technical note
+
+**Current result: Phase-7 regression workflow, Phase-8 finding documentation, Phase-9 automated regression implementation and verification, and Phase-10 CI/CD integration and verification are complete.**
 
 Remaining activity:
 
@@ -1112,6 +1456,10 @@ TC-003 Regression Workflow Verification
 Example Finding Documentation
       ↓
 Automated Regression Verification
+      ↓
+GitHub Actions CI Execution
+      ↓
+CI Evidence Artifact
 ```
 
 The current implementation supports:
@@ -1135,6 +1483,11 @@ The current implementation supports:
 * traceability between test results, evidence, and finding documentation
 * isolated regression test scenarios
 * automated verification of established security properties
+* GitHub Actions execution of the existing regression suite
+* CI evidence generation
+* CI evidence artifact upload
+* verified CI success handling
+* verified CI failure handling with evidence preservation
 
 ---
 
@@ -1167,7 +1520,7 @@ The following capabilities are not implemented in the current phase:
 * generalized root-cause management
 * remediation tracking
 * generalized regression orchestration
-* CI/CD integration
+* verified pull-request execution
 * end-to-end assessment
 * professional documentation package
 * technical review
@@ -1176,7 +1529,6 @@ The following capabilities are not implemented in the current phase:
 Planned sequence:
 
 ```text
-Phase 10 → CI/CD
 Phase 11 → End-to-End Assessment
 Phase 12 → Professional Documentation
 Phase 13 → Technical Review
@@ -1204,12 +1556,20 @@ Phase 14 → Recruiter / Interview Review
 
 # Current Phase
 
-**Phase 9 — pytest Regression Suite**
+**Phase 10 — CI/CD Security Regression Pipeline**
 
-Phase 9 is completed and locally verified.
-The project currently provides automated regression verification for established security properties.
-The automated regression suite verifies secure authorization behavior, message-validation behavior, ECU-state restrictions, boundary handling, and the correctness of generated regression Evidence.
-The existing Evidence Framework is now exercised directly within automated regression execution, including explicit Evidence validation through `evidence.validate()`.
+Phase 10 is completed and verified.
+
+The project currently provides automated regression verification for established security properties and executes this regression suite through GitHub Actions.
+
+The CI workflow preserves `04_tests/test_security_regression.py` as the Single Source of Truth for Security Regression test logic.
+
+The existing Evidence Framework is exercised directly within automated regression execution and CI evidence generation, including explicit Evidence validation through `evidence.validate()` and JSON artifact creation.
+
 The complete local pytest suite currently passes 41 tests.
 
-The next planned phase is Phase 10 — CI/CD.
+A successful GitHub Actions `push` execution and a controlled GitHub Actions failure have been verified. The evidence artifact remains available after the controlled failure.
+
+The configured `pull_request` trigger has not yet been verified through a separate actual GitHub Actions run.
+
+The next planned phase is Phase 11 — End-to-End Assessment.
