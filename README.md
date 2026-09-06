@@ -253,7 +253,7 @@ The test therefore detects the modeled authorization deviation.
 
 ---
 
-# TC-002 — Message Validation
+## TC-002 — Message Validation
 
 TC-002 verifies deterministic validation of protected-operation message parameters and ECU operational state.
 
